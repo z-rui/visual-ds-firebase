@@ -1,3 +1,4 @@
+
 "use client";
 
 import { BinarySearchTreeVisualizer } from "@/components/visual-ds/binary-search-tree-visualizer";
@@ -13,11 +14,15 @@ export default function Home() {
     edges,
     visitorNodeId,
     highlightedNodeId,
+    deletionHighlightNodeId,
     isAnimating,
     addNode,
     removeNode,
     searchNode,
-    traverse,
+    invisibleNodes,
+    invisibleEdges,
+    animationControls,
+    currentAnimationStep,
   } = useBstVisualizer();
 
   return (
@@ -37,8 +42,9 @@ export default function Home() {
               onAdd={addNode}
               onRemove={removeNode}
               onSearch={searchNode}
-              onTraverse={traverse}
               isAnimating={isAnimating}
+              animationControls={animationControls}
+              currentAnimationStep={currentAnimationStep}
             />
           </div>
           <div className="lg:col-span-9">
@@ -52,6 +58,9 @@ export default function Home() {
                   edges={edges}
                   visitorNodeId={visitorNodeId}
                   highlightedNodeId={highlightedNodeId}
+                  deletionHighlightNodeId={deletionHighlightNodeId}
+                  invisibleNodes={invisibleNodes}
+                  invisibleEdges={invisibleEdges}
                 />
               </CardContent>
             </Card>

@@ -1,165 +1,183 @@
-import type { AnimationStep } from '@/types/bst';
 
-let nodeIdCounter = 0;
+import type { VisualNode, VisualEdge } from '@/types/bst';
 
-class TreeNode {
+export class BstNode {
   value: number;
-  left: TreeNode | null;
-  right: TreeNode | null;
+  left: BstNode | null;
+  right: BstNode | null;
   id: string;
 
-  constructor(value: number) {
+  constructor(value: number, id: string) {
     this.value = value;
     this.left = null;
     this.right = null;
-    this.id = `node-${nodeIdCounter++}`;
+    this.id = id;
   }
 }
 
+export interface DeleteResult {
+    traversalPath: string[];
+    foundNodeId: string | null;
+    isTwoChildCase: boolean;
+    successorId?: string;
+    successorParentId?: string;
+    successorRightChildId?: string;
+}
+
+
 export class BinarySearchTree {
-  root: TreeNode | null;
+  public readonly root: BstNode | null;
+  private nodeIdCounter: number;
+  
+  // Public, immutable state describing operation results
+  public readonly traversalPath: string[];
+  public readonly foundNodeId: string | null;
+  public readonly isTwoChildCase: boolean;
+  public readonly successorId?: string;
+  public readonly successorParentId?: string;
+  public readonly successorRightChildId?: string;
 
-  constructor() {
-    this.root = null;
+  constructor(
+    root: BstNode | null = null, 
+    nodeIdCounter: number = 0,
+    result: Partial<DeleteResult> & { traversalPath?: string[], foundNodeId?: string | null } = {},
+  ) {
+    this.root = root;
+    this.nodeIdCounter = nodeIdCounter;
+    this.traversalPath = result.traversalPath || [];
+    this.foundNodeId = result.foundNodeId || null;
+    this.isTwoChildCase = result.isTwoChildCase || false;
+    this.successorId = result.successorId;
+    this.successorParentId = result.successorParentId;
+    this.successorRightChildId = result.successorRightChildId;
   }
 
-  insert(value: number, log: (step: AnimationStep) => void) {
-    const newNode = new TreeNode(value);
-    if (!this.root) {
-      this.root = newNode;
-      log({ type: 'insert', parentId: null, nodeId: newNode.id, value: newNode.value, direction: 'root' });
-      return;
-    }
-
-    let current = this.root;
-    while (true) {
-      log({ type: 'visit', nodeId: current.id });
-      log({ type: 'compare', nodeId: current.id, value });
-
-      if (value === current.value) {
-        log({ type: 'error', message: `Value ${value} already exists.` });
-        return;
-      }
-
-      if (value < current.value) {
-        if (!current.left) {
-          current.left = newNode;
-          log({ type: 'insert', parentId: current.id, nodeId: newNode.id, value: newNode.value, direction: 'left' });
-          return;
-        }
-        current = current.left;
-      } else {
-        if (!current.right) {
-          current.right = newNode;
-          log({ type: 'insert', parentId: current.id, nodeId: newNode.id, value: newNode.value, direction: 'right' });
-          return;
-        }
-        current = current.right;
-      }
-    }
+  private getNextId(): string {
+    return `node-${this.nodeIdCounter}`;
   }
 
-  search(value: number, log: (step: AnimationStep) => void) {
+  private clone(
+    newRoot: BstNode | null, 
+    newNodeIdCounter: number,
+    result: Partial<DeleteResult> & { traversalPath?: string[], foundNodeId?: string | null } = {},
+  ): BinarySearchTree {
+    return new BinarySearchTree(newRoot, newNodeIdCounter, result);
+  }
+
+  private cloneNode(node: BstNode | null): BstNode | null {
+    if (!node) return null;
+    const newNode = new BstNode(node.value, node.id);
+    newNode.left = this.cloneNode(node.left);
+    newNode.right = this.cloneNode(node.right);
+    return newNode;
+  }
+
+  insert(value: number): BinarySearchTree {
+    const newRoot = this.cloneNode(this.root);
+    const traversalPath: string[] = [];
+    let newNodeIdCounter = this.nodeIdCounter;
+
+    const _insert = (node: BstNode | null): BstNode => {
+      if (!node) {
+        const newNode = new BstNode(value, this.getNextId());
+        newNodeIdCounter++;
+        traversalPath.push(newNode.id);
+        return newNode;
+      }
+
+      traversalPath.push(node.id);
+
+      if (value < node.value) {
+        node.left = _insert(node.left);
+      } else if (value > node.value) {
+        node.right = _insert(node.right);
+      }
+      return node;
+    };
+    
+    const finalRoot = _insert(newRoot);
+    return this.clone(finalRoot, newNodeIdCounter, { traversalPath });
+  }
+
+  search(value: number): BinarySearchTree {
+    const traversalPath: string[] = [];
+    let foundNodeId: string | null = null;
     let current = this.root;
+
     while (current) {
-      log({ type: 'visit', nodeId: current.id });
-      log({ type: 'compare', nodeId: current.id, value });
+      traversalPath.push(current.id);
       if (value === current.value) {
-        log({ type: 'search-found', nodeId: current.id });
-        return;
+        foundNodeId = current.id;
+        break;
       }
-      if (value < current.value) {
-        current = current.left;
-      } else {
-        current = current.right;
-      }
+      current = value < current.value ? current.left : current.right;
     }
-    log({ type: 'search-not-found', message: `Value ${value} not found.` });
+    
+    return this.clone(this.root, this.nodeIdCounter, { traversalPath, foundNodeId });
   }
 
-  delete(value: number, log: (step: AnimationStep) => void) {
-    this.root = this._deleteNode(this.root, value, log);
-  }
-
-  private _deleteNode(node: TreeNode | null, value: number, log: (step: AnimationStep) => void): TreeNode | null {
-    if (!node) {
-      log({ type: 'search-not-found', message: `Value ${value} not found.` });
-      return null;
-    }
-
-    log({ type: 'visit', nodeId: node.id });
-    log({ type: 'compare', nodeId: node.id, value });
-
-    if (value < node.value) {
-      node.left = this._deleteNode(node.left, value, log);
-      return node;
-    }
-    
-    if (value > node.value) {
-      node.right = this._deleteNode(node.right, value, log);
-      return node;
-    }
-
-    // Value is found
-    log({ type: 'delete', nodeId: node.id });
-
-    // Node with only one child or no child
-    if (!node.left) return node.right;
-    if (!node.right) return node.left;
-
-    // Node with two children: Get the inorder successor (smallest in the right subtree)
-    let successor = node.right;
-    while (successor.left) {
-      log({ type: 'visit', nodeId: successor.id });
-      successor = successor.left;
-    }
-    log({ type: 'visit', nodeId: successor.id });
-    
-    const oldNodeId = node.id;
-    node.value = successor.value;
-    node.id = successor.id; // The node "becomes" the successor visually
-    
-    log({ type: 'replace', oldNodeId: oldNodeId, newNodeId: successor.id, value: successor.value });
-    
-    // Delete the inorder successor
-    node.right = this._deleteNode(node.right, successor.value, log);
-    
-    return node;
-  }
-
-  inOrderTraversal(log: (step: AnimationStep) => void) {
-    const traverse = (node: TreeNode | null) => {
-      if (node) {
-        traverse(node.left);
-        log({ type: 'visit', nodeId: node.id });
-        traverse(node.right);
-      }
+  delete(value: number): BinarySearchTree {
+    const result: DeleteResult = {
+        traversalPath: [],
+        foundNodeId: null,
+        isTwoChildCase: false,
     };
-    traverse(this.root);
-    log({ type: 'traversal-end' });
-  }
+    const newRoot = this.cloneNode(this.root);
+    
+    const _delete = (node: BstNode | null, val: number): BstNode | null => {
+        if (!node) return null;
+        
+        result.traversalPath.push(node.id);
+        
+        if (val < node.value) {
+            node.left = _delete(node.left, val);
+        } else if (val > node.value) {
+            node.right = _delete(node.right, val);
+        } else {
+            if (result.foundNodeId === null) {
+              result.foundNodeId = node.id;
+            }
 
-  preOrderTraversal(log: (step: AnimationStep) => void) {
-    const traverse = (node: TreeNode | null) => {
-      if (node) {
-        log({ type: 'visit', nodeId: node.id });
-        traverse(node.left);
-        traverse(node.right);
-      }
-    };
-    traverse(this.root);
-    log({ type: 'traversal-end' });
-  }
+            if (!node.left) return node.right;
+            if (!node.right) return node.left;
+            
+            result.isTwoChildCase = true;
+            let successorParent = node;
+            let successor = node.right;
+            result.traversalPath.push(successor.id);
 
-  postOrderTraversal(log: (step: AnimationStep) => void) {
-    const traverse = (node: TreeNode | null) => {
-      if (node) {
-        traverse(node.left);
-        traverse(node.right);
-        log({ type: 'visit', nodeId: node.id });
-      }
+            while(successor.left) {
+                successorParent = successor;
+                successor = successor.left;
+                result.traversalPath.push(successor.id);
+            }
+            
+            result.successorId = successor.id;
+            result.successorParentId = successorParent.id;
+            result.successorRightChildId = successor.right?.id;
+
+            node.value = successor.value;
+            node.id = successor.id; // Take on the ID of the successor to make layout animation easier
+
+            // Now, delete the original successor node from the right subtree
+            const deleteSuccessor = (subNode: BstNode | null, successorVal: number): BstNode | null => {
+                if (!subNode) return null;
+                if (successorVal < subNode.value) {
+                    subNode.left = deleteSuccessor(subNode.left, successorVal);
+                } else if (successorVal > subNode.value) {
+                    subNode.right = deleteSuccessor(subNode.right, successorVal);
+                } else {
+                    return subNode.right;
+                }
+                return subNode;
+            }
+            node.right = deleteSuccessor(node.right, successor.value);
+        }
+        return node;
     };
-    traverse(this.root);
-    log({ type: 'traversal-end' });
+    
+    const finalRoot = _delete(newRoot, value);
+    
+    return this.clone(finalRoot, this.nodeIdCounter, result);
   }
 }

@@ -1,0 +1,54 @@
+# Animation and Layout Requirements for Visual DS
+
+This document outlines the key visual and behavioral rules for the binary search tree visualizer. These requirements must be maintained to ensure an intuitive and clear user experience.
+
+## 1. Layout Rules
+
+### 1.1. Single-Child Node Distinction
+The visual layout must correctly differentiate between a node that has only a left child and a node that has only a right child. The layout algorithm should reserve space for a "missing" child to ensure the single existing child is positioned correctly on its respective side (left or right). This is implemented using non-rendered "dummy nodes" during the layout calculation phase.
+
+## 2. Animation Rules
+
+### 2.1. The "No-Jump" Rule for Edges
+During any animation where nodes are moving, the edges connected to those nodes must move and stretch smoothly along with them. There should be no "jumping" where an edge instantly appears at its final destination before the nodes have finished their animation. Edge endpoints must remain perfectly snapped to the center of their respective nodes throughout the entire transition.
+
+### 2.2. Deletion Highlight
+Nodes marked for deletion must be highlighted with a visually distinct, "destructive" color (e.g., a red border) to differentiate them from standard highlights (e.g., for search).
+
+### 2.3. Insertion Animation Sequence
+1.  **Search:** A "visitor" highlight traverses the tree from the root to find the correct insertion point.
+2.  **Fade In:** The new node and its connecting edge fade into view at the insertion point.
+3.  **Update Layout:** The surrounding nodes and edges animate smoothly to their final positions to accommodate the new element.
+
+### 2.4. Deletion Animation Sequence (Leaf & Single-Child Cases)
+This sequence applies when deleting a node with zero or one child.
+
+1.  **Search:** A "visitor" highlight traverses the tree to find the target node.
+2.  **Highlight for Deletion:** The target node is highlighted with the destructive (red) color.
+3.  **Fade Out Parent Edge:** The edge connecting the target node to its parent fades out.
+4.  **Fade Out Child Edge (if applicable):** If the target node has one child, the edge connecting them fades out.
+5.  **Fade Out Node:** The target node itself fades out.
+6.  **Fade In New Edge (if applicable):** In the single-child case, a new edge connecting the child to the target node's parent fades into view.
+7.  **Update Layout:** The tree structure animates smoothly to its final layout.
+
+### 2.5. Deletion Animation Sequence (Two-Child Case)
+This sequence applies when deleting a node with two children, using its in-order successor.
+
+1.  **Search:** A "visitor" highlight traverses the tree to find the target node.
+2.  **Highlight for Deletion:** The target node is highlighted with the destructive (red) color.
+3.  **Find Successor:** The visitor highlight traverses from the target's right child to find the in-order successor.
+4.  **Unlink Successor from Parent:** The edge from the successor to its parent fades out.
+5.  **Unlink Successor from Child (if applicable):** If the successor has a right child, the edge to that child fades out. This is a separate step from step 4.
+6.  **Re-wire Successor's Child (if applicable):** If step 5 occurred, a new edge fades in to connect the successor's right child to the successor's original parent. This is a separate step from step 5.
+7.  **Unlink Target's Children:** The edges connecting the original target node to its children fade out.
+8.  **Fade Out Node:** The original target node fades out from its position.
+9.  **Move Successor:** The successor node animates smoothly from its original position to the position of the target node.
+10. **Link Successor to Target's Children:** New edges fade into view, connecting the successor (now in its new position) to the children of the original target node.
+11. **Update Layout:** The entire tree animates into its new, final structure, with all edges correctly wired to the moved successor.
+
+### 2.6. Playback Controls
+The visualizer must provide controls to manage the animation playback, including:
+- A progress bar/slider to scrub through the animation steps.
+- Play and Pause functionality.
+- Step Forward and Step Backward buttons to move one step at a time.
+- Rewind and Fast-Forward buttons to jump to the beginning or end of the animation.

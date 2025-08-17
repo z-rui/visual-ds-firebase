@@ -18,6 +18,12 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  devIndicators: {
+    allowedDevOrigins: [
+        'http://localhost:3000',
+        'http://localhost:9002',
+    ]
+  }
 };
 
 export default nextConfig;

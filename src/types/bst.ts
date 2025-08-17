@@ -1,3 +1,4 @@
+
 export type VisualNode = {
   id: string;
   value: number;
@@ -6,22 +7,26 @@ export type VisualNode = {
 };
 
 export type VisualEdge = {
-  id: string;
+  id:string; // ID of the `to` node
   from: string;
   to: string;
 };
 
-export type AnimationStep =
-  | { type: 'visit'; nodeId: string }
-  | { type: 'compare'; nodeId: string; value: number }
-  | { type: 'insert'; parentId: string | null; nodeId: string; value: number; direction: 'left' | 'right' | 'root' }
-  | { type: 'delete'; nodeId: string }
-  | { type: 'replace'; oldNodeId: string; newNodeId: string; value: number }
-  | { type: 'search-found'; nodeId: string }
-  | { type: 'search-not-found'; message: string }
-  | { type: 'highlight'; nodeId: string }
-  | { type: 'unhighlight'; nodeId: string }
-  | { type: 'traversal-end' }
-  | { type: 'error'; message: string };
+export type ToastMessage = {
+  title: string;
+  description: string;
+  variant?: 'default' | 'destructive'
+}
 
-export type TraversalType = 'in-order' | 'pre-order' | 'post-order';
+// A complete snapshot of the visual state at a single point in time.
+export type AnimationStep = {
+  nodes: VisualNode[];
+  edges: VisualEdge[];
+  visitorNodeId: string | null;
+  highlightedNodeId: string | null;
+  deletionHighlightNodeId: string | null;
+  invisibleNodes: Set<string>;
+  invisibleEdges: Set<string>;
+  toast?: ToastMessage;
+  action?: Record<string, any>;
+};

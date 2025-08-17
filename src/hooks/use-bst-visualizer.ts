@@ -1,159 +1,225 @@
+
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { BinarySearchTree } from '@/lib/ds/bst';
-import type { VisualNode, VisualEdge, AnimationStep, TraversalType } from '@/types/bst';
+import type { VisualNode, VisualEdge, AnimationStep } from '@/types/bst';
 import { useToast } from "@/hooks/use-toast";
+import { generateInsertSteps, generateSearchSteps, generateDeleteSteps } from '@/lib/animation/bst-animation-producer';
+import { calculateLayout } from '@/lib/animation/bst-animation-producer';
 
-const Y_SPACING = 80;
-const X_SPACING = 60;
-const ANIMATION_SPEED = 500; // ms
+const ANIMATION_INTERVAL = 750; // Base interval for auto-play
+
+const initialTreeData = [50, 25, 75, 12, 37, 62, 87, 6, 18, 31, 43, 56, 68, 81, 93];
+
+export interface AnimationControls {
+  currentStep: number;
+  totalSteps: number;
+  isPlaying: boolean;
+  isAutoPlaying: boolean;
+  canStepBack: boolean;
+  canStepForward: boolean;
+  goToStep: (step: number) => void;
+  stepBack: () => void;
+  stepForward: () => void;
+  rewind: () => void;
+  fastForward: () => void;
+  togglePlayPause: () => void;
+  setIsAutoPlaying: (isAutoPlaying: boolean) => void;
+  animationSpeed: number;
+  setAnimationSpeed: (speed: number) => void;
+}
+
 
 export function useBstVisualizer() {
   const { toast } = useToast();
-  const bstRef = useRef(new BinarySearchTree());
   
-  const [nodes, setNodes] = useState<VisualNode[]>([]);
-  const [edges, setEdges] = useState<VisualEdge[]>([]);
-  
-  const [visitorNodeId, setVisitorNodeId] = useState<string | null>(null);
-  const [highlightedNodeId, setHighlightedNodeId] = useState<string | null>(null);
-  
+  const [tree, setTree] = useState(() => {
+    let newTree = new BinarySearchTree();
+    initialTreeData.forEach(value => {
+        newTree = newTree.insert(value);
+    });
+    return newTree;
+  });
+
   const [isAnimating, setIsAnimating] = useState(false);
-  const animationQueueRef = useRef<AnimationStep[]>([]);
+  const [animationSteps, setAnimationSteps] = useState<AnimationStep[]>([]);
+  const [currentStep, setCurrentStep] = useState(0);
+  const [isAutoPlaying, setIsAutoPlaying] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [animationSpeed, setAnimationSpeed] = useState(3);
 
-  const calculatePositions = useCallback(() => {
-    const newNodes: VisualNode[] = [];
-    const newEdges: VisualEdge[] = [];
-    const { root } = bstRef.current;
-    if (!root) {
-      setNodes([]);
-      setEdges([]);
-      return;
+  const animationIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const latestTree = useRef(tree);
+  
+  const baseLayout = useMemo(() => calculateLayout(tree), [tree]);
+
+  const currentAnimationStep = useMemo(() => {
+    if (animationSteps[currentStep]) {
+        return animationSteps[currentStep];
     }
+    return null;
+  }, [animationSteps, currentStep]);
 
-    let x = 0;
-    const setCoordinates = (node: any, depth: number) => {
-      if (!node) return;
-      setCoordinates(node.left, depth + 1);
-      newNodes.push({ id: node.id, value: node.value, y: depth * Y_SPACING, x: x * X_SPACING });
-      x++;
-      setCoordinates(node.right, depth + 1);
-    };
-    setCoordinates(root, 0);
+  // Derive visual state from the current step, or fall back to the base layout
+  const nodes = currentAnimationStep?.nodes ?? baseLayout.nodes;
+  const edges = currentAnimationStep?.edges ?? baseLayout.edges;
+  const invisibleNodes = currentAnimationStep?.invisibleNodes ?? new Set<string>();
+  const invisibleEdges = currentAnimationStep?.invisibleEdges ?? new Set<string>();
+  const visitorNodeId = currentAnimationStep?.visitorNodeId ?? null;
+  const highlightedNodeId = currentAnimationStep?.highlightedNodeId ?? null;
+  const deletionHighlightNodeId = currentAnimationStep?.deletionHighlightNodeId ?? null;
 
-    const totalWidth = (newNodes.length - 1) * X_SPACING;
-    const offsetX = -totalWidth / 2;
-
-    newNodes.forEach(node => node.x += offsetX);
-
-    const buildEdges = (node: any) => {
-      if (!node) return;
-      if (node.left) {
-        newEdges.push({ id: `${node.id}-${node.left.id}`, from: node.id, to: node.left.id });
-        buildEdges(node.left);
-      }
-      if (node.right) {
-        newEdges.push({ id: `${node.id}-${node.right.id}`, from: node.id, to: node.right.id });
-        buildEdges(node.right);
-      }
-    };
-    buildEdges(root);
-    
-    setNodes(newNodes);
-    setEdges(newEdges);
-  }, []);
-
-  const processAnimationQueue = useCallback(async () => {
-    if (animationQueueRef.current.length === 0) {
-      setIsAnimating(false);
-      setVisitorNodeId(null);
-      setHighlightedNodeId(null);
-      return;
-    }
-
-    const step = animationQueueRef.current.shift();
+  const applyToast = useCallback((step: AnimationStep | undefined) => {
     if (!step) return;
-
-    switch (step.type) {
-      case 'visit':
-      case 'compare':
-        setVisitorNodeId(step.nodeId);
-        break;
-      case 'insert':
-      case 'delete':
-      case 'replace':
-        setVisitorNodeId(null);
-        calculatePositions();
-        break;
-      case 'search-found':
-        setVisitorNodeId(step.nodeId);
-        setHighlightedNodeId(step.nodeId);
-        break;
-      case 'search-not-found':
-        toast({ title: 'Search', description: step.message, variant: 'destructive' });
-        break;
-      case 'error':
-        toast({ title: 'Error', description: step.message, variant: 'destructive' });
-        animationQueueRef.current = []; // Clear queue on error
-        break;
-      case 'traversal-end':
-         setVisitorNodeId(null);
-         break;
+    if (step.toast) toast(step.toast);
+  }, [toast]);
+    
+  useEffect(() => {
+    if (animationIntervalRef.current) {
+        clearInterval(animationIntervalRef.current);
     }
+    if (isPlaying && currentStep < animationSteps.length - 1) {
+      const speedMultiplier = 1.75 - (animationSpeed * 0.25);
+      animationIntervalRef.current = setInterval(() => {
+        setCurrentStep(prev => prev + 1);
+      }, ANIMATION_INTERVAL * speedMultiplier);
+    }
+    return () => {
+      if (animationIntervalRef.current) {
+        clearInterval(animationIntervalRef.current);
+      }
+    };
+  }, [isPlaying, currentStep, animationSteps, animationSpeed]);
+  
+  useEffect(() => {
+    if (!animationSteps[currentStep]) return;
 
-    setTimeout(processAnimationQueue, ANIMATION_SPEED);
-  }, [calculatePositions, toast]);
+    applyToast(animationSteps[currentStep]);
 
+    if (currentStep >= animationSteps.length - 1) {
+      setIsAnimating(false);
+      setIsPlaying(false);
+      setTree(latestTree.current);
+    }
+  }, [currentStep, animationSteps, applyToast, isAnimating]);
+
+
+  const goToStep = useCallback((targetStep: number) => {
+    if (targetStep >= 0 && targetStep < animationSteps.length) {
+      setCurrentStep(targetStep);
+      setIsPlaying(false);
+    }
+  }, [animationSteps]);
+  
   const startAnimation = useCallback((steps: AnimationStep[]) => {
     if (isAnimating) {
         toast({ title: "Animation in progress", description: "Please wait for the current animation to finish.", variant: "destructive" });
         return;
     };
-    setHighlightedNodeId(null);
-    animationQueueRef.current = steps;
-    setIsAnimating(true);
-    processAnimationQueue();
-  }, [isAnimating, processAnimationQueue, toast]);
+    if (animationIntervalRef.current) clearInterval(animationIntervalRef.current);
+    
+    setAnimationSteps(steps);
+    
+    if (steps.length > 0) {
+      setIsAnimating(true);
+      setCurrentStep(0);
+      if (isAutoPlaying) {
+        setIsPlaying(true);
+      } else {
+        setIsPlaying(false);
+      }
+    }
+  }, [isAnimating, toast, isAutoPlaying]);
   
   const addNode = useCallback((value: number) => {
-    const steps: AnimationStep[] = [];
-    bstRef.current.insert(value, (step) => steps.push(step));
+    if (tree.search(value).foundNodeId) {
+      toast({ title: "Node Exists", description: `Node with value ${value} already exists in the tree.`, variant: "destructive" });
+      return;
+    }
+    const beforeTree = tree;
+    const afterTree = tree.insert(value);
+    latestTree.current = afterTree;
+    const steps = generateInsertSteps(beforeTree, afterTree, value);
     startAnimation(steps);
-  }, [startAnimation]);
+  }, [tree, startAnimation, toast]);
 
   const removeNode = useCallback((value: number) => {
-    const steps: AnimationStep[] = [];
-    bstRef.current.delete(value, (step) => steps.push(step));
+    if (!tree.search(value).foundNodeId) {
+      toast({ title: "Not Found", description: `Node with value ${value} not found.`, variant: "destructive" });
+      return;
+    }
+    const beforeTree = tree;
+    const afterTree = tree.delete(value);
+    latestTree.current = afterTree;
+    const steps = generateDeleteSteps(beforeTree, afterTree, value);
     startAnimation(steps);
-  }, [startAnimation]);
+  }, [tree, startAnimation, toast]);
 
   const searchNode = useCallback((value: number) => {
-    const steps: AnimationStep[] = [];
-    bstRef.current.search(value, (step) => steps.push(step));
+    const steps = generateSearchSteps(tree, value);
     startAnimation(steps);
-  }, [startAnimation]);
+  }, [tree, startAnimation]);
 
-  const traverse = useCallback((type: TraversalType) => {
-    const steps: AnimationStep[] = [];
-    switch (type) {
-        case 'in-order':
-            bstRef.current.inOrderTraversal(step => steps.push(step));
-            break;
-        case 'pre-order':
-            bstRef.current.preOrderTraversal(step => steps.push(step));
-            break;
-        case 'post-order':
-            bstRef.current.postOrderTraversal(step => steps.push(step));
-            break;
+  const canStepForward = currentStep < animationSteps.length - 1;
+  const canStepBack = currentStep > 0;
+
+  const stepForward = () => {
+    if (canStepForward) {
+      goToStep(currentStep + 1);
     }
-    startAnimation(steps);
-  }, [startAnimation]);
-  
-  useEffect(() => {
-    // Initial empty state
-    calculatePositions();
-  }, [calculatePositions]);
+  };
+  const stepBack = () => {
+      if (canStepBack) {
+          goToStep(currentStep - 1);
+      }
+  };
+  const rewind = () => {
+      goToStep(0);
+  };
+  const fastForward = () => {
+      goToStep(animationSteps.length - 1);
+  };
 
-  return { nodes, edges, visitorNodeId, highlightedNodeId, isAnimating, addNode, removeNode, searchNode, traverse };
+  const togglePlayPause = () => {
+    if (!canStepForward) {
+      setIsPlaying(false);
+      return;
+    }
+    setIsPlaying(prev => !prev);
+  }
+
+  const animationControls: AnimationControls = {
+    currentStep,
+    totalSteps: animationSteps.length > 0 ? animationSteps.length - 1 : 0,
+    isPlaying,
+    isAutoPlaying,
+    canStepBack,
+    canStepForward,
+    goToStep,
+    stepBack,
+    stepForward,
+    rewind,
+    fastForward,
+    togglePlayPause,
+    setIsAutoPlaying,
+    animationSpeed,
+    setAnimationSpeed,
+  };
+
+  return { 
+    nodes, 
+    edges, 
+    visitorNodeId, 
+    highlightedNodeId, 
+    deletionHighlightNodeId,
+    isAnimating, 
+    addNode, 
+    removeNode, 
+    searchNode, 
+    invisibleNodes, 
+    invisibleEdges,
+    animationControls,
+    currentAnimationStep,
+  };
 }
