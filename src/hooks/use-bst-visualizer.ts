@@ -3,14 +3,9 @@
 
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { BinarySearchTree } from '@/lib/ds/bst';
-import type { VisualNode, VisualEdge, AnimationStep } from '@/types/bst';
+import type { AnimationStep, NodeStyle, EdgeStyle } from '@/types/bst';
 import { useToast } from "@/hooks/use-toast";
-import { generateInsertSteps, generateSearchSteps, generateDeleteSteps } from '@/lib/animation/bst-animation-producer';
-import { calculateLayout } from '@/lib/animation/bst-animation-producer';
-
-const ANIMATION_INTERVAL = 750; // Base interval for auto-play
-
-const initialTreeData = [50, 25, 75, 12, 37, 62, 87, 6, 18, 31, 43, 56, 68, 81, 93];
+import { generateAnimationSteps } from '@/lib/animation/snapshot-generator';
 
 export interface AnimationControls {
   currentStep: number;
@@ -31,16 +26,39 @@ export interface AnimationControls {
 }
 
 
+const ANIMATION_INTERVAL = 750; // Base interval for auto-play
+
+const initialTreeData = [50, 25, 75, 12, 37, 62, 87, 6, 18, 31, 43, 56, 68, 81, 93];
+
+// Helper to calculate the initial layout.
+const getInitialLayout = (tree: BinarySearchTree): AnimationStep => {
+  const root = tree.getRoot();
+  if (root) {
+    // Generate a single step representing the final, stable layout
+    const initialSteps = generateAnimationSteps([{
+      type: 'UPDATE_LAYOUT',
+      tree: root,
+      description: 'Initial tree load',
+    }]);
+    return initialSteps[initialSteps.length - 1]; 
+  }
+  return {
+    nodes: [],
+    edges: [],
+    visitorNodeId: null,
+    nodeStyles: new Map<string, NodeStyle>(),
+    edgeStyles: new Map<string, EdgeStyle>(),
+  };
+};
+
+
 export function useBstVisualizer() {
   const { toast } = useToast();
   
-  const [tree, setTree] = useState(() => {
-    let newTree = new BinarySearchTree();
-    initialTreeData.forEach(value => {
-        newTree = newTree.insert(value);
-    });
-    return newTree;
-  });
+  const [tree, setTree] = useState(() => new BinarySearchTree(initialTreeData));
+
+  // Base visual state, representing the current stable layout
+  const [baseLayout, setBaseLayout] = useState<AnimationStep>(() => getInitialLayout(tree));
 
   const [isAnimating, setIsAnimating] = useState(false);
   const [animationSteps, setAnimationSteps] = useState<AnimationStep[]>([]);
@@ -50,34 +68,32 @@ export function useBstVisualizer() {
   const [animationSpeed, setAnimationSpeed] = useState(3);
 
   const animationIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const latestTree = useRef(tree);
   
-  const baseLayout = useMemo(() => calculateLayout(tree), [tree]);
-
   const currentAnimationStep = useMemo(() => {
-    if (animationSteps[currentStep]) {
-        return animationSteps[currentStep];
-    }
-    return null;
+    return animationSteps[currentStep] || null;
   }, [animationSteps, currentStep]);
 
-  // Derive visual state from the current step, or fall back to the base layout
-  const nodes = currentAnimationStep?.nodes ?? baseLayout.nodes;
-  const edges = currentAnimationStep?.edges ?? baseLayout.edges;
-  const invisibleNodes = currentAnimationStep?.invisibleNodes ?? new Set<string>();
-  const invisibleEdges = currentAnimationStep?.invisibleEdges ?? new Set<string>();
-  const visitorNodeId = currentAnimationStep?.visitorNodeId ?? null;
-  const highlightedNodeId = currentAnimationStep?.highlightedNodeId ?? null;
-  const deletionHighlightNodeId = currentAnimationStep?.deletionHighlightNodeId ?? null;
+  // The visualizer now renders from the current step if animating,
+  // or from the stable baseLayout if not.
+  const displayedStep = currentAnimationStep ?? baseLayout;
+  const {
+    nodes,
+    edges,
+    visitorNodeId,
+    nodeStyles,
+    edgeStyles,
+  } = displayedStep;
+
 
   const applyToast = useCallback((step: AnimationStep | undefined) => {
-    if (!step) return;
-    if (step.toast) toast(step.toast);
+    if (step?.toast) {
+      toast(step.toast);
+    }
   }, [toast]);
     
   useEffect(() => {
     if (animationIntervalRef.current) {
-        clearInterval(animationIntervalRef.current);
+      clearInterval(animationIntervalRef.current);
     }
     if (isPlaying && currentStep < animationSteps.length - 1) {
       const speedMultiplier = 1.75 - (animationSpeed * 0.25);
@@ -93,17 +109,17 @@ export function useBstVisualizer() {
   }, [isPlaying, currentStep, animationSteps, animationSpeed]);
   
   useEffect(() => {
-    if (!animationSteps[currentStep]) return;
+    if (!isAnimating || !animationSteps[currentStep]) return;
 
     applyToast(animationSteps[currentStep]);
 
     if (currentStep >= animationSteps.length - 1) {
+      // When animation finishes, update the base layout to the final step
+      setBaseLayout(animationSteps[currentStep]);
       setIsAnimating(false);
       setIsPlaying(false);
-      setTree(latestTree.current);
     }
   }, [currentStep, animationSteps, applyToast, isAnimating]);
-
 
   const goToStep = useCallback((targetStep: number) => {
     if (targetStep >= 0 && targetStep < animationSteps.length) {
@@ -124,55 +140,41 @@ export function useBstVisualizer() {
     if (steps.length > 0) {
       setIsAnimating(true);
       setCurrentStep(0);
-      if (isAutoPlaying) {
+      if (isAutoPlaying && steps.length > 1) {
         setIsPlaying(true);
       } else {
         setIsPlaying(false);
+        applyToast(steps[0]);
       }
     }
-  }, [isAnimating, toast, isAutoPlaying]);
+  }, [isAnimating, toast, isAutoPlaying, applyToast]);
   
   const addNode = useCallback((value: number) => {
-    if (tree.search(value).foundNodeId) {
-      toast({ title: "Node Exists", description: `Node with value ${value} already exists in the tree.`, variant: "destructive" });
-      return;
-    }
-    const beforeTree = tree;
-    const afterTree = tree.insert(value);
-    latestTree.current = afterTree;
-    const steps = generateInsertSteps(beforeTree, afterTree, value);
+    const events = tree.insert(value);
+    const steps = generateAnimationSteps(events, baseLayout);
     startAnimation(steps);
-  }, [tree, startAnimation, toast]);
+  }, [tree, startAnimation, baseLayout]);
 
   const removeNode = useCallback((value: number) => {
-    if (!tree.search(value).foundNodeId) {
-      toast({ title: "Not Found", description: `Node with value ${value} not found.`, variant: "destructive" });
-      return;
-    }
-    const beforeTree = tree;
-    const afterTree = tree.delete(value);
-    latestTree.current = afterTree;
-    const steps = generateDeleteSteps(beforeTree, afterTree, value);
+    const events = tree.delete(value);
+    const steps = generateAnimationSteps(events, baseLayout);
     startAnimation(steps);
-  }, [tree, startAnimation, toast]);
+  }, [tree, startAnimation, baseLayout]);
 
   const searchNode = useCallback((value: number) => {
-    const steps = generateSearchSteps(tree, value);
+    const events = tree.search(value);
+    const steps = generateAnimationSteps(events, baseLayout);
     startAnimation(steps);
-  }, [tree, startAnimation]);
+  }, [tree, startAnimation, baseLayout]);
 
   const canStepForward = currentStep < animationSteps.length - 1;
   const canStepBack = currentStep > 0;
 
   const stepForward = () => {
-    if (canStepForward) {
-      goToStep(currentStep + 1);
-    }
+    if (canStepForward) goToStep(currentStep + 1);
   };
   const stepBack = () => {
-      if (canStepBack) {
-          goToStep(currentStep - 1);
-      }
+      if (canStepBack) goToStep(currentStep - 1);
   };
   const rewind = () => {
       goToStep(0);
@@ -211,15 +213,13 @@ export function useBstVisualizer() {
     nodes, 
     edges, 
     visitorNodeId, 
-    highlightedNodeId, 
-    deletionHighlightNodeId,
+    nodeStyles,
+    edgeStyles,
     isAnimating, 
     addNode, 
     removeNode, 
     searchNode, 
-    invisibleNodes, 
-    invisibleEdges,
     animationControls,
-    currentAnimationStep,
+    currentAnimationStep: displayedStep,
   };
 }

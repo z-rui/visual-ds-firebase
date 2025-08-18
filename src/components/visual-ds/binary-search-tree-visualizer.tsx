@@ -3,12 +3,15 @@
 
 import React, { useMemo, useRef, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { VisualNode, VisualEdge, AnimationStep } from '@/types/bst';
+import type { VisualNode, VisualEdge, NodeStyle, EdgeStyle } from '@/types/bst';
 
 const NODE_RADIUS = 24;
 const NODE_DIAMETER = NODE_RADIUS * 2;
 
-const Node = React.memo(({ id, value, x, y, isHighlighted, isDeletionHighlight }: VisualNode & { isHighlighted: boolean, isDeletionHighlight: boolean }) => {
+const Node = React.memo(({ node, nodeStyle }: { node: VisualNode, nodeStyle?: NodeStyle }) => {
+  const isHighlighted = nodeStyle?.highlight === 'default';
+  const isDeletionHighlight = nodeStyle?.highlight === 'deletion';
+
   const nodeBorderAnimate = {
     stroke: isDeletionHighlight
       ? "hsl(var(--destructive))"
@@ -20,15 +23,21 @@ const Node = React.memo(({ id, value, x, y, isHighlighted, isDeletionHighlight }
 
   return (
     <motion.g
-      layoutId={id}
-      initial={{ opacity: 0, scale: 0.5, x, y }}
-      animate={{ opacity: 1, scale: 1, x, y }}
+      layoutId={node.id}
+      initial={{ opacity: 0, scale: 0.5, x: node.x, y: node.y }}
+      animate={{ 
+        opacity: nodeStyle?.invisible ? 0 : 1, 
+        scale: 1, 
+        x: node.x, 
+        y: node.y 
+      }}
       exit={{ opacity: 0, scale: 0.5 }}
       transition={{ duration: 0.5, ease: "easeInOut" }}
     >
       <motion.circle
         r={NODE_RADIUS}
         fill="hsl(var(--card))"
+        initial={{strokeWidth: 2}}
         animate={nodeBorderAnimate}
         transition={{ duration: 0.3, ease: "easeInOut" }}
       />
@@ -37,14 +46,14 @@ const Node = React.memo(({ id, value, x, y, isHighlighted, isDeletionHighlight }
         dominantBaseline="central"
         className="fill-foreground text-lg font-medium pointer-events-none select-none"
       >
-        {value}
+        {node.value}
       </text>
     </motion.g>
   );
 });
 Node.displayName = 'Node';
 
-const Edge = React.memo(({ from, to, isInvisible }: { from: VisualNode; to: VisualNode, isInvisible: boolean }) => {
+const Edge = React.memo(({ from, to, edgeStyle }: { from: VisualNode; to: VisualNode, edgeStyle?: EdgeStyle }) => {
   return (
     <motion.line
       layoutId={`edge-${from.id}-${to.id}`}
@@ -60,7 +69,7 @@ const Edge = React.memo(({ from, to, isInvisible }: { from: VisualNode; to: Visu
         y1: from.y,
         x2: to.x,
         y2: to.y,
-        opacity: isInvisible ? 0 : 1,
+        opacity: edgeStyle?.invisible ? 0 : 1,
       }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.5, ease: "easeInOut" }}
@@ -75,20 +84,16 @@ interface BinarySearchTreeVisualizerProps {
   nodes: VisualNode[];
   edges: VisualEdge[];
   visitorNodeId: string | null;
-  highlightedNodeId: string | null;
-  deletionHighlightNodeId: string | null;
-  invisibleNodes: Set<string>;
-  invisibleEdges: Set<string>;
+  nodeStyles?: Map<string, NodeStyle>;
+  edgeStyles?: Map<string, EdgeStyle>;
 }
 
 export function BinarySearchTreeVisualizer({
   nodes,
   edges,
   visitorNodeId,
-  highlightedNodeId,
-  deletionHighlightNodeId,
-  invisibleNodes,
-  invisibleEdges,
+  nodeStyles = new Map(),
+  edgeStyles = new Map(),
 }: BinarySearchTreeVisualizerProps) {
   const nodeMap = useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes]);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -165,23 +170,19 @@ export function BinarySearchTreeVisualizer({
                 const fromNode = nodeMap.get(edge.from);
                 const toNode = nodeMap.get(edge.to);
                 if (!fromNode || !toNode) return null;
-                return <Edge key={edge.id} from={fromNode} to={toNode} isInvisible={invisibleEdges.has(edge.id)} />;
+                return <Edge key={edge.id} from={fromNode} to={toNode} edgeStyle={edgeStyles.get(edge.id)} />;
             })}
             </AnimatePresence>
         </g>
         <g>
             <AnimatePresence>
-            {nodes.map((node) => {
-                if (invisibleNodes.has(node.id)) return null;
-                return (
-                    <Node
-                        key={node.id}
-                        {...node}
-                        isHighlighted={node.id === highlightedNodeId}
-                        isDeletionHighlight={node.id === deletionHighlightNodeId}
-                    />
-                )
-            })}
+            {nodes.map((node) => (
+                <Node
+                    key={node.id}
+                    node={node}
+                    nodeStyle={nodeStyles.get(node.id)}
+                />
+            ))}
             </AnimatePresence>
         </g>
         <AnimatePresence>

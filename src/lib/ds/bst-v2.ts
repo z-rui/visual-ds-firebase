@@ -120,98 +120,98 @@ export class BinarySearchTreeV2 {
 
   public delete(value: number): AnimationEvent[] {
     const events: AnimationEvent[] = [];
-    
+    let nodeFound = false;
+
     const deleteRec = (node: BinaryTreeNode | null, val: number, parent: BinaryTreeNode | null): BinaryTreeNode | null => {
-        if (!node) {
-            events.push({ type: 'END_OPERATION', toast: { title: 'Not Found', description: `Node with value ${val} not found.`, variant: 'destructive' } });
-            return null;
+      if (!node) {
+        return null;
+      }
+
+      events.push({ type: 'VISIT_NODE', nodeId: node.id, value: node.value });
+
+      if (val < node.value) {
+        node.left = deleteRec(node.left, val, node);
+      } else if (val > node.value) {
+        node.right = deleteRec(node.right, val, node);
+      } else {
+        // This is the node to be deleted
+        nodeFound = true;
+        events.push({ type: 'HIGHLIGHT_NODE', nodeId: node.id, reason: 'deletion' });
+
+        // Case 1 & 2: Leaf node or one child
+        if (!node.left || !node.right) {
+          const child = node.left || node.right;
+          const edgesToHide: string[] = [];
+          if (parent) edgesToHide.push(`${parent.id}-${node.id}`);
+          if (child) edgesToHide.push(`${node.id}-${child.id}`);
+          
+          if (edgesToHide.length > 0) {
+            events.push({ type: 'HIDE_EDGE', edgeIds: edgesToHide });
+          }
+          events.push({ type: 'HIDE_NODE', nodeId: node.id });
+          return child;
         }
         
-        events.push({ type: 'VISIT_NODE', nodeId: node.id, value: node.value });
+        // Case 3: Two children
+        let successorParent = node;
+        let successor = node.right;
+        events.push({ type: 'VISIT_NODE', nodeId: successor.id, value: successor.value });
 
-        if (val < node.value) {
-            node.left = deleteRec(node.left, val, node);
-        } else if (val > node.value) {
-            node.right = deleteRec(node.right, val, node);
-        } else {
-            // This is the node to be deleted
-            if (events.every(e => e.type !== 'HIGHLIGHT_NODE')) {
-                events.push({ type: 'HIGHLIGHT_NODE', nodeId: node.id, reason: 'deletion' });
-            }
-
-            // Case 1 & 2: Leaf node or one child
-            if (!node.left || !node.right) {
-                const child = node.left || node.right;
-                const edgesToHide: string[] = [];
-                if (parent) edgesToHide.push(`${parent.id}-${node.id}`);
-                if (child) edgesToHide.push(`${node.id}-${child.id}`);
-                
-                if (edgesToHide.length > 0) {
-                    events.push({ type: 'HIDE_EDGE', edgeIds: edgesToHide });
-                }
-                events.push({ type: 'HIDE_NODE', nodeId: node.id });
-                return child;
-            }
-            
-            // Case 3: Two children
-            let successorParent = node;
-            let successor = node.right;
-            events.push({ type: 'VISIT_NODE', nodeId: successor.id, value: successor.value });
-
-            while (successor.left) {
-                successorParent = successor;
-                successor = successor.left;
-                events.push({ type: 'VISIT_NODE', nodeId: successor.id, value: successor.value });
-            }
-            events.push({ type: 'HIGHLIGHT_NODE', nodeId: successor.id, reason: 'successor' });
-
-            // Unlink successor from its original position
-            const successorEdgesToHide = [`${successorParent.id}-${successor.id}`];
-            if (successor.right) {
-                successorEdgesToHide.push(`${successor.id}-${successor.right.id}`);
-            }
-            events.push({ type: 'HIDE_EDGE', edgeIds: successorEdgesToHide });
-
-            // Unlink target node from parent and children
-            const targetEdgesToHide: string[] = [];
-            if (parent) {
-                targetEdgesToHide.push(`${parent.id}-${node.id}`);
-            }
-            targetEdgesToHide.push(`${node.id}-${node.left!.id}`);
-            targetEdgesToHide.push(`${node.id}-${node.right!.id}`);
-            events.push({ type: 'HIDE_EDGE', edgeIds: targetEdgesToHide });
-            
-            events.push({ type: 'HIDE_NODE', nodeId: node.id });
-            
-            // Delete the successor from its original position
-            if (successorParent === node) {
-                successorParent.right = successor.right;
-            } else {
-                successorParent.left = successor.right;
-            }
-            
-            // Replace the target node with the successor
-            successor.left = node.left;
-            successor.right = node.right;
-            
-            return successor;
+        while (successor.left) {
+          successorParent = successor;
+          successor = successor.left;
+          events.push({ type: 'VISIT_NODE', nodeId: successor.id, value: successor.value });
         }
-        return node;
+        events.push({ type: 'HIGHLIGHT_NODE', nodeId: successor.id, reason: 'successor' });
+
+        // Unlink successor from its original position
+        const successorEdgesToHide = [`${successorParent.id}-${successor.id}`];
+        if (successor.right) {
+          successorEdgesToHide.push(`${successor.id}-${successor.right.id}`);
+        }
+        events.push({ type: 'HIDE_EDGE', edgeIds: successorEdgesToHide });
+
+        // Unlink target node from parent and children
+        const targetEdgesToHide: string[] = [];
+        if (parent) {
+          targetEdgesToHide.push(`${parent.id}-${node.id}`);
+        }
+        targetEdgesToHide.push(`${node.id}-${node.left!.id}`);
+        targetEdgesToHide.push(`${node.id}-${node.right!.id}`);
+        events.push({ type: 'HIDE_EDGE', edgeIds: targetEdgesToHide });
+        
+        events.push({ type: 'HIDE_NODE', nodeId: node.id });
+        
+        // Delete the successor from its original position
+        if (successorParent === node) {
+          successorParent.right = successor.right;
+        } else {
+          successorParent.left = successor.right;
+        }
+        
+        // Replace the target node with the successor
+        successor.left = node.left;
+        successor.right = node.right;
+        
+        return successor;
+      }
+      return node;
     };
 
     const newRoot = deleteRec(this.root, value, null);
 
-    // Only update layout if a node was actually found and deleted
-    if (!events.some(e => e.type === 'END_OPERATION' && e.toast?.title === 'Not Found')) {
-        this.root = newRoot;
-        if (this.root) {
-            events.push({
-                type: 'UPDATE_LAYOUT',
-                tree: this.cloneTree(this.root)!,
-                description: 'Tree layout updated after deletion.'
-            });
-        }
-        events.push({ type: 'END_OPERATION' });
+    if (nodeFound) {
+      this.root = newRoot;
+      if (this.root) {
+        events.push({
+          type: 'UPDATE_LAYOUT',
+          tree: this.cloneTree(this.root)!,
+          description: 'Tree layout updated after deletion.'
+        });
+      }
+      events.push({ type: 'END_OPERATION' });
+    } else {
+      events.push({ type: 'END_OPERATION', toast: { title: 'Not Found', description: `Node with value ${value} not found.`, variant: 'destructive' } });
     }
 
     return events;

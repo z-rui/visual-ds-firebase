@@ -24,7 +24,7 @@ The application is built on a clean, three-layer architecture that separates the
     *   **Role**: Contains the pure data structure class (e.g., `BinarySearchTree`). It is responsible for managing the data, enforcing algorithmic rules, and has **no knowledge** of anything visual. Operations are immutable, returning a new instance of the tree after each change.
 
 2.  **The Animation Producer Layer (The "How")**
-    *   **Location**: `src/lib/animation/`
+    *   **Location**: `src/lib/animation/snapshot-generator.ts`
     *   **Role**: Acts as a translator between the abstract data structure and its visual representation. It calculates the layout (x, y coordinates) and generates a step-by-step sequence of "snapshots" (`AnimationStep` objects) that describe how the visualization should look at each moment in time.
 
 3.  **The UI & State Management Layer (The "Display")**

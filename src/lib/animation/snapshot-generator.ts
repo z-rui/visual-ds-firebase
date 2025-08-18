@@ -1,7 +1,7 @@
 
-import type { VisualNode, VisualEdge, AnimationStep, ToastMessage } from '@/types/bst';
+import type { VisualNode, VisualEdge, AnimationStep, ToastMessage, NodeStyle, EdgeStyle } from '@/types/bst';
 import type { AnimationEvent } from '@/types/animation';
-import { BinaryTreeNode } from '@/lib/ds/bst-v2';
+import { BinaryTreeNode } from '@/lib/ds/bst';
 import dagre from 'dagre';
 
 const NODE_WIDTH = 60;
@@ -14,7 +14,11 @@ const VERTICAL_SPACING = 10;
  * @param tree The root of the BinaryTreeNode tree.
  * @returns An object containing the calculated nodes and edges.
  */
-function calculateLayoutFromTree(tree: BinaryTreeNode): { nodes: VisualNode[], edges: VisualEdge[] } {
+function calculateLayoutFromTree(tree: BinaryTreeNode | null): { nodes: VisualNode[], edges: VisualEdge[] } {
+  if (!tree) {
+    return { nodes: [], edges: [] };
+  }
+
   const g = new dagre.graphlib.Graph();
   g.setGraph({ rankdir: 'TB', nodesep: HORIZONTAL_SPACING, ranksep: VERTICAL_SPACING });
   g.setDefaultEdgeLabel(() => ({}));
@@ -75,26 +79,24 @@ function calculateLayoutFromTree(tree: BinaryTreeNode): { nodes: VisualNode[], e
 export function generateAnimationSteps(events: AnimationEvent[], initialLayout?: AnimationStep): AnimationStep[] {
   const steps: AnimationStep[] = [];
   
-  const cloneInitialLayout = (layout: AnimationStep) => {
+  const cloneInitialLayout = (layout: AnimationStep): AnimationStep => {
     return {
       ...layout,
       nodes: [...layout.nodes.map(n => ({...n}))],
       edges: [...layout.edges.map(e => ({...e}))],
-      invisibleNodes: new Set(layout.invisibleNodes),
-      invisibleEdges: new Set(layout.invisibleEdges),
+      nodeStyles: new Map(layout.nodeStyles),
+      edgeStyles: new Map(layout.edgeStyles),
     };
   };
 
-  let currentStepState = initialLayout 
+  let currentStepState: AnimationStep = initialLayout 
       ? cloneInitialLayout(initialLayout)
       : {
           nodes: [],
           edges: [],
           visitorNodeId: null,
-          highlightedNodeId: null,
-          deletionHighlightNodeId: null,
-          invisibleNodes: new Set<string>(),
-          invisibleEdges: new Set<string>(),
+          nodeStyles: new Map<string, NodeStyle>(),
+          edgeStyles: new Map<string, EdgeStyle>(),
           toast: undefined,
           action: { type: 'initial' }
       };
@@ -121,60 +123,67 @@ export function generateAnimationSteps(events: AnimationEvent[], initialLayout?:
         break;
 
       case 'HIGHLIGHT_NODE':
-        if (event.reason === 'deletion') {
-            currentStepState.deletionHighlightNodeId = event.nodeId;
-        } else {
-            currentStepState.highlightedNodeId = event.nodeId;
-        }
+        currentStepState.nodeStyles.set(event.nodeId, {
+            highlight: event.reason === 'deletion' ? 'deletion' : 'default'
+        });
         pushStep({ type: event.type, reason: event.reason });
         break;
 
       case 'HIDE_NODE':
-        currentStepState.invisibleNodes.add(event.nodeId);
+        currentStepState.nodeStyles.set(event.nodeId, {
+            ...currentStepState.nodeStyles.get(event.nodeId),
+            invisible: true
+        });
         pushStep({ type: event.type, nodeId: event.nodeId });
         break;
       
       case 'HIDE_EDGE':
-        event.edgeIds.forEach(edgeId => currentStepState.invisibleEdges.add(edgeId));
+        event.edgeIds.forEach(edgeId => {
+            currentStepState.edgeStyles.set(edgeId, {
+                ...currentStepState.edgeStyles.get(edgeId),
+                invisible: true
+            });
+        });
         pushStep({ type: event.type, edgeIds: event.edgeIds });
         break;
       
       case 'UPDATE_LAYOUT': {
         const newLayout = calculateLayoutFromTree(event.tree);
-        
         const oldNodeMap = new Map(currentStepState.nodes.map(n => [n.id, n]));
+        const oldEdgeIds = new Set(currentStepState.edges.map(e => e.id));
 
-        const newNodes = newLayout.nodes.filter(n => !oldNodeMap.has(n.id));
-        const newEdges = newLayout.edges.filter(e => !currentStepState.edges.some(ce => ce.id === e.id));
-        
+        // Create the re-layout step. Only nodes move.
+        // New edges are NOT added yet.
         currentStepState.nodes = newLayout.nodes;
-        currentStepState.edges = newLayout.edges;
-        
-        const newlyInvisibleNodes = new Set(newNodes.map(n => n.id));
-        currentStepState.invisibleNodes = new Set([...currentStepState.invisibleNodes, ...newlyInvisibleNodes]);
-        
-        const newlyInvisibleEdges = new Set(newEdges.map(e => e.id));
-        currentStepState.invisibleEdges = new Set([...currentStepState.invisibleEdges, ...newlyInvisibleEdges]);
-
         pushStep({ type: 're-layout' });
-        
-        if (newlyInvisibleNodes.size > 0) {
-            newlyInvisibleNodes.forEach(id => currentStepState.invisibleNodes.delete(id));
-            pushStep({ type: 'reveal-node' });
-        }
-        
-        if (newlyInvisibleEdges.size > 0) {
-            newlyInvisibleEdges.forEach(id => currentStepState.invisibleEdges.delete(id));
-            pushStep({ type: 'reveal-edge' });
-        }
 
+        // Now, add the new edges and mark them as invisible for the reveal step.
+        const edgesToReveal: string[] = [];
+        newLayout.edges.forEach(newEdge => {
+          if (!oldEdgeIds.has(newEdge.id)) {
+            currentStepState.edgeStyles.set(newEdge.id, { invisible: true });
+            edgesToReveal.push(newEdge.id);
+          }
+        });
+        currentStepState.edges = newLayout.edges;
+
+        // Reveal new nodes (if any) and the new edges.
+        currentStepState.nodeStyles.forEach((style, id) => {
+          if (!oldNodeMap.has(id)) {
+            currentStepState.nodeStyles.set(id, { ...style, invisible: false });
+          }
+        });
+        edgesToReveal.forEach(edgeId => {
+          currentStepState.edgeStyles.set(edgeId, { invisible: false });
+        });
+
+        pushStep({ type: 'reveal' });
         break;
       }
       
       case 'END_OPERATION':
         currentStepState.visitorNodeId = null;
-        currentStepState.highlightedNodeId = null;
-        currentStepState.deletionHighlightNodeId = null;
+        currentStepState.nodeStyles.clear();
         pushStep({ type: 'end' }, event.toast);
         break;
     }

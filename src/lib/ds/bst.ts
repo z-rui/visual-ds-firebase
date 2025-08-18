@@ -1,10 +1,12 @@
 
-import type { VisualNode, VisualEdge } from '@/types/bst';
+import type { AnimationEvent } from '@/types/animation';
 
-export class BstNode {
+// --- V2 Data Structure Implementation ---
+
+export class BinaryTreeNode {
   value: number;
-  left: BstNode | null;
-  right: BstNode | null;
+  left: BinaryTreeNode | null;
+  right: BinaryTreeNode | null;
   id: string;
 
   constructor(value: number, id: string) {
@@ -15,169 +17,207 @@ export class BstNode {
   }
 }
 
-export interface DeleteResult {
-    traversalPath: string[];
-    foundNodeId: string | null;
-    isTwoChildCase: boolean;
-    successorId?: string;
-    successorParentId?: string;
-    successorRightChildId?: string;
-}
-
-
 export class BinarySearchTree {
-  public readonly root: BstNode | null;
+  private root: BinaryTreeNode | null;
   private nodeIdCounter: number;
-  
-  // Public, immutable state describing operation results
-  public readonly traversalPath: string[];
-  public readonly foundNodeId: string | null;
-  public readonly isTwoChildCase: boolean;
-  public readonly successorId?: string;
-  public readonly successorParentId?: string;
-  public readonly successorRightChildId?: string;
 
-  constructor(
-    root: BstNode | null = null, 
-    nodeIdCounter: number = 0,
-    result: Partial<DeleteResult> & { traversalPath?: string[], foundNodeId?: string | null } = {},
-  ) {
-    this.root = root;
-    this.nodeIdCounter = nodeIdCounter;
-    this.traversalPath = result.traversalPath || [];
-    this.foundNodeId = result.foundNodeId || null;
-    this.isTwoChildCase = result.isTwoChildCase || false;
-    this.successorId = result.successorId;
-    this.successorParentId = result.successorParentId;
-    this.successorRightChildId = result.successorRightChildId;
+  constructor(initialData: number[] = []) {
+    this.root = null;
+    this.nodeIdCounter = 0;
+    initialData.forEach(value => {
+        this.insert(value)
+    });
   }
 
-  private getNextId(): string {
-    return `node-${this.nodeIdCounter}`;
-  }
-
-  private clone(
-    newRoot: BstNode | null, 
-    newNodeIdCounter: number,
-    result: Partial<DeleteResult> & { traversalPath?: string[], foundNodeId?: string | null } = {},
-  ): BinarySearchTree {
-    return new BinarySearchTree(newRoot, newNodeIdCounter, result);
-  }
-
-  private cloneNode(node: BstNode | null): BstNode | null {
+  /**
+   * Provides a deep clone of the current tree's root.
+   * This is used for creating snapshots for keyframes.
+   */
+  private cloneTree(node: BinaryTreeNode | null): BinaryTreeNode | null {
     if (!node) return null;
-    const newNode = new BstNode(node.value, node.id);
-    newNode.left = this.cloneNode(node.left);
-    newNode.right = this.cloneNode(node.right);
+    const newNode = new BinaryTreeNode(node.value, node.id);
+    newNode.left = this.cloneTree(node.left);
+    newNode.right = this.cloneTree(node.right);
     return newNode;
   }
 
-  insert(value: number): BinarySearchTree {
-    const newRoot = this.cloneNode(this.root);
-    const traversalPath: string[] = [];
-    let newNodeIdCounter = this.nodeIdCounter;
-
-    const _insert = (node: BstNode | null): BstNode => {
-      if (!node) {
-        const newNode = new BstNode(value, this.getNextId());
-        newNodeIdCounter++;
-        traversalPath.push(newNode.id);
-        return newNode;
-      }
-
-      traversalPath.push(node.id);
-
-      if (value < node.value) {
-        node.left = _insert(node.left);
-      } else if (value > node.value) {
-        node.right = _insert(node.right);
-      }
-      return node;
-    };
-    
-    const finalRoot = _insert(newRoot);
-    return this.clone(finalRoot, newNodeIdCounter, { traversalPath });
+  public getRoot(): BinaryTreeNode | null {
+    return this.root;
   }
 
-  search(value: number): BinarySearchTree {
-    const traversalPath: string[] = [];
-    let foundNodeId: string | null = null;
+  private getNextId(): string {
+    return `node-${this.nodeIdCounter++}`;
+  }
+  
+  public search(value: number): AnimationEvent[] {
+    const events: AnimationEvent[] = [];
     let current = this.root;
-
     while (current) {
-      traversalPath.push(current.id);
+      events.push({ type: 'VISIT_NODE', nodeId: current.id, value: current.value });
       if (value === current.value) {
-        foundNodeId = current.id;
-        break;
+        events.push({ type: 'HIGHLIGHT_NODE', nodeId: current.id, reason: 'found' });
+        events.push({ type: 'END_OPERATION', toast: { title: 'Found', description: `Node with value ${value} found.` } });
+        return events;
       }
       current = value < current.value ? current.left : current.right;
     }
-    
-    return this.clone(this.root, this.nodeIdCounter, { traversalPath, foundNodeId });
+    events.push({ type: 'END_OPERATION', toast: { title: 'Not Found', description: `Node with value ${value} not found.`, variant: 'destructive' } });
+    return events;
   }
 
-  delete(value: number): BinarySearchTree {
-    const result: DeleteResult = {
-        traversalPath: [],
-        foundNodeId: null,
-        isTwoChildCase: false,
-    };
-    const newRoot = this.cloneNode(this.root);
+  public insert(value: number): AnimationEvent[] {
+    const events: AnimationEvent[] = [];
+
+    // Check for duplicates first
+    let check = this.root;
+    while(check) {
+      if (value === check.value) {
+        events.push({ type: 'VISIT_NODE', nodeId: check.id, value: check.value });
+        events.push({ type: 'END_OPERATION', toast: { title: 'Duplicate', description: `Node with value ${value} already exists.`, variant: 'destructive' } });
+        return events;
+      }
+      check = value < check.value ? check.left : check.right;
+    }
+
+    if (!this.root) {
+      const newNodeId = this.getNextId();
+      this.root = new BinaryTreeNode(value, newNodeId);
+      events.push({
+        type: 'UPDATE_LAYOUT',
+        tree: this.cloneTree(this.root)!,
+        description: 'Initial layout with new root node.',
+      });
+      events.push({ type: 'END_OPERATION' });
+      return events;
+    }
+
+    let current = this.root;
     
-    const _delete = (node: BstNode | null, val: number): BstNode | null => {
-        if (!node) return null;
+    while (current) {
+      events.push({ type: 'VISIT_NODE', nodeId: current.id, value: current.value });
+      if (value < current.value) {
+        if (!current.left) {
+            current.left = new BinaryTreeNode(value, this.getNextId());
+            break;
+        }
+        current = current.left;
+      } else {
+        if (!current.right) {
+            current.right = new BinaryTreeNode(value, this.getNextId());
+            break;
+        }
+        current = current.right;
+      }
+    }
+    
+    events.push({
+      type: 'UPDATE_LAYOUT',
+      tree: this.cloneTree(this.root)!,
+      description: 'Tree layout updated to accommodate new node.',
+    });
+    events.push({ type: 'END_OPERATION' });
+    
+    return events;
+  }
+
+  public delete(value: number): AnimationEvent[] {
+    const events: AnimationEvent[] = [];
+    
+    const deleteRec = (node: BinaryTreeNode | null, val: number, parent: BinaryTreeNode | null): BinaryTreeNode | null => {
+        if (!node) {
+            events.push({ type: 'END_OPERATION', toast: { title: 'Not Found', description: `Node with value ${val} not found.`, variant: 'destructive' } });
+            return null;
+        }
         
-        result.traversalPath.push(node.id);
-        
+        events.push({ type: 'VISIT_NODE', nodeId: node.id, value: node.value });
+
         if (val < node.value) {
-            node.left = _delete(node.left, val);
+            node.left = deleteRec(node.left, val, node);
         } else if (val > node.value) {
-            node.right = _delete(node.right, val);
+            node.right = deleteRec(node.right, val, node);
         } else {
-            if (result.foundNodeId === null) {
-              result.foundNodeId = node.id;
+            // This is the node to be deleted
+            if (events.every(e => e.type !== 'HIGHLIGHT_NODE')) {
+                events.push({ type: 'HIGHLIGHT_NODE', nodeId: node.id, reason: 'deletion' });
             }
 
-            if (!node.left) return node.right;
-            if (!node.right) return node.left;
+            // Case 1 & 2: Leaf node or one child
+            if (!node.left || !node.right) {
+                const child = node.left || node.right;
+                const edgesToHide: string[] = [];
+                if (parent) edgesToHide.push(`${parent.id}-${node.id}`);
+                if (child) edgesToHide.push(`${node.id}-${child.id}`);
+                
+                if (edgesToHide.length > 0) {
+                    events.push({ type: 'HIDE_EDGE', edgeIds: edgesToHide });
+                }
+                events.push({ type: 'HIDE_NODE', nodeId: node.id });
+                return child;
+            }
             
-            result.isTwoChildCase = true;
+            // Case 3: Two children
             let successorParent = node;
             let successor = node.right;
-            result.traversalPath.push(successor.id);
+            events.push({ type: 'VISIT_NODE', nodeId: successor.id, value: successor.value });
 
-            while(successor.left) {
+            while (successor.left) {
                 successorParent = successor;
                 successor = successor.left;
-                result.traversalPath.push(successor.id);
+                events.push({ type: 'VISIT_NODE', nodeId: successor.id, value: successor.value });
+            }
+            events.push({ type: 'HIGHLIGHT_NODE', nodeId: successor.id, reason: 'successor' });
+            
+            const successorEdgesToHide = [`${successorParent.id}-${successor.id}`];
+            if (successor.right) {
+                successorEdgesToHide.push(`${successor.id}-${successor.right.id}`);
+            }
+            events.push({ type: 'HIDE_EDGE', edgeIds: successorEdgesToHide });
+
+            const targetEdgesToHide: string[] = [];
+            if (parent) {
+                targetEdgesToHide.push(`${parent.id}-${node.id}`);
+            }
+            targetEdgesToHide.push(`${node.id}-${node.left!.id}`);
+            targetEdgesToHide.push(`${node.id}-${node.right!.id}`);
+            events.push({ type: 'HIDE_EDGE', edgeIds: targetEdgesToHide });
+            
+            events.push({ type: 'HIDE_NODE', nodeId: node.id });
+            
+            if (successorParent === node) {
+                successorParent.right = successor.right;
+            } else {
+                successorParent.left = successor.right;
             }
             
-            result.successorId = successor.id;
-            result.successorParentId = successorParent.id;
-            result.successorRightChildId = successor.right?.id;
-
-            node.value = successor.value;
-            node.id = successor.id; // Take on the ID of the successor to make layout animation easier
-
-            // Now, delete the original successor node from the right subtree
-            const deleteSuccessor = (subNode: BstNode | null, successorVal: number): BstNode | null => {
-                if (!subNode) return null;
-                if (successorVal < subNode.value) {
-                    subNode.left = deleteSuccessor(subNode.left, successorVal);
-                } else if (successorVal > subNode.value) {
-                    subNode.right = deleteSuccessor(subNode.right, successorVal);
-                } else {
-                    return subNode.right;
-                }
-                return subNode;
-            }
-            node.right = deleteSuccessor(node.right, successor.value);
+            successor.left = node.left;
+            successor.right = node.right;
+            
+            return successor;
         }
         return node;
     };
+
+    const newRoot = deleteRec(this.root, value, null);
     
-    const finalRoot = _delete(newRoot, value);
-    
-    return this.clone(finalRoot, this.nodeIdCounter, result);
+    if (!events.some(e => e.type === 'END_OPERATION' && e.toast?.title === 'Not Found')) {
+        this.root = newRoot;
+        if (this.root) {
+            events.push({
+                type: 'UPDATE_LAYOUT',
+                tree: this.cloneTree(this.root)!,
+                description: 'Tree layout updated after deletion.'
+            });
+        } else {
+            // Handle case where tree becomes empty
+            events.push({
+                type: 'UPDATE_LAYOUT',
+                tree: null, // Represent empty tree
+                description: 'Tree is now empty.'
+            });
+        }
+        events.push({ type: 'END_OPERATION' });
+    }
+
+    return events;
   }
 }

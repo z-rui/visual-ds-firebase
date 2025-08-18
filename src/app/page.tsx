@@ -5,23 +5,20 @@ import { BinarySearchTreeVisualizer } from "@/components/visual-ds/binary-search
 import { Controls } from "@/components/visual-ds/controls";
 import { useBstVisualizer } from "@/hooks/use-bst-visualizer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Github, Link as LinkIcon } from "lucide-react";
+import { Github } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import Link from 'next/link';
 
 export default function Home() {
   const {
     nodes,
     edges,
     visitorNodeId,
-    highlightedNodeId,
-    deletionHighlightNodeId,
+    nodeStyles,
+    edgeStyles,
     isAnimating,
     addNode,
     removeNode,
     searchNode,
-    invisibleNodes,
-    invisibleEdges,
     animationControls,
     currentAnimationStep,
   } = useBstVisualizer();
@@ -30,14 +27,8 @@ export default function Home() {
     <main className="flex min-h-screen w-full flex-col items-center bg-background p-4 sm:p-6 md:p-8">
       <div className="w-full max-w-7xl">
         <header className="mb-6 flex items-center justify-between">
-          <h1 className="text-3xl font-bold text-primary">Visual DS (V1)</h1>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" asChild>
-              <Link href="/v2">
-                <LinkIcon className="mr-2 h-4 w-4" />
-                Go to V2
-              </Link>
-            </Button>
+          <h1 className="text-3xl font-bold text-primary">Visual DS</h1>
+           <div className="flex items-center gap-2">
             <Button variant="ghost" size="icon" asChild>
               <a href="https://github.com/firebase/genkit-plugins/tree/main/apps/visual-ds" target="_blank" rel="noopener noreferrer">
                 <Github className="h-6 w-6" />
@@ -66,10 +57,8 @@ export default function Home() {
                   nodes={nodes}
                   edges={edges}
                   visitorNodeId={visitorNodeId}
-                  highlightedNodeId={highlightedNodeId}
-                  deletionHighlightNodeId={deletionHighlightNodeId}
-                  invisibleNodes={invisibleNodes}
-                  invisibleEdges={invisibleEdges}
+                  nodeStyles={nodeStyles}
+                  edgeStyles={edgeStyles}
                 />
               </CardContent>
             </Card>

@@ -4,7 +4,7 @@ This document captures key insights, known issues, and potential improvements fo
 
 ## Lessons Learned
 
-1.  **Separation of Concerns is Critical**: The three-layer architecture (Data, Animation Producer, Renderer) is the single most important concept. Keeping the `BinarySearchTree` pure (no visual logic) and the `BinarySearchTreeVisualizer` dumb (just rendering props) is essential for managing complexity. The `bst-animation-producer` is where all the complex "translation" logic lives.
+1.  **Separation of Concerns is Critical**: The three-layer architecture (Data, Animation Producer, Renderer) is the single most important concept. Keeping the `BinarySearchTree` pure (no visual logic) and the `BinarySearchTreeVisualizer` dumb (just rendering props) is essential for managing complexity. The `snapshot-generator.ts` is where all the complex "translation" logic lives.
 
 2.  **Animation is a Series of Snapshots**: The most successful approach was to think of an animation not as a series of imperative commands (`move`, `fade`), but as an array of declarative "snapshots" (`AnimationStep` objects). The `useBstVisualizer` hook is the "player" that simply moves through these snapshots, and `framer-motion` handles the "tweening" between them.
 
@@ -26,7 +26,7 @@ The most significant architectural hurdle was the initial hybrid rendering appro
 
 ## Future Improvement Suggestions
 
-1.  **Generic Visualizer Framework**: The `bst-animation-producer` is specific to binary search trees. A future goal could be to abstract this further. One could define a generic `Visualizer` interface with methods like `getLayout()` and `generateTransitionSteps()`, and then implement this interface for different data structures (e.g., `GraphVisualizer`, `LinkedListVisualizer`). This would require a more abstract `AnimationStep` definition.
+1.  **Generic Visualizer Framework**: The `snapshot-generator.ts` is specific to binary search trees. A future goal could be to abstract this further. One could define a generic `Visualizer` interface with methods like `getLayout()` and `generateTransitionSteps()`, and then implement this interface for different data structures (e.g., `GraphVisualizer`, `LinkedListVisualizer`). This would require a more abstract `AnimationStep` definition.
 
 2.  **Add More Data Structures**: The ultimate goal is to support more than just BSTs. Adding a Linked List or a simple Graph would be the next logical step and would test the generic nature of the rendering layer.
 
