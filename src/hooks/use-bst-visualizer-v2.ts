@@ -1,0 +1,213 @@
+
+"use client";
+
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { BinarySearchTreeV2 } from '@/lib/ds/bst-v2';
+import type { VisualNode, VisualEdge, AnimationStep } from '@/types/bst';
+import { useToast } from "@/hooks/use-toast";
+import { generateAnimationSteps } from '@/lib/animation/snapshot-generator';
+import type { AnimationControls } from './use-bst-visualizer';
+
+const ANIMATION_INTERVAL = 750; // Base interval for auto-play
+
+const initialTreeData = [50, 25, 75, 12, 37, 62, 87, 6, 18, 31, 43, 56, 68, 81, 93];
+
+// Helper to calculate the initial layout.
+const getInitialLayout = (tree: BinarySearchTreeV2): AnimationStep => {
+  const root = tree.getRoot();
+  if (root) {
+    const initialSteps = generateAnimationSteps([{
+      type: 'UPDATE_LAYOUT',
+      tree: root,
+      description: 'Initial tree load',
+    }]);
+    return initialSteps[initialSteps.length - 1]; // Return the final, stable layout
+  }
+  return {
+    nodes: [],
+    edges: [],
+    visitorNodeId: null,
+    highlightedNodeId: null,
+    deletionHighlightNodeId: null,
+    invisibleNodes: new Set(),
+    invisibleEdges: new Set(),
+  };
+};
+
+
+export function useBstVisualizerV2() {
+  const { toast } = useToast();
+  
+  const [tree, setTree] = useState(() => new BinarySearchTreeV2(initialTreeData));
+
+  // Base visual state, representing the current stable layout
+  const [baseLayout, setBaseLayout] = useState<AnimationStep>(() => getInitialLayout(tree));
+
+  const [isAnimating, setIsAnimating] = useState(false);
+  const [animationSteps, setAnimationSteps] = useState<AnimationStep[]>([]);
+  const [currentStep, setCurrentStep] = useState(0);
+  const [isAutoPlaying, setIsAutoPlaying] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [animationSpeed, setAnimationSpeed] = useState(3);
+
+  const animationIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  
+  const currentAnimationStep = useMemo(() => {
+    return animationSteps[currentStep] || null;
+  }, [animationSteps, currentStep]);
+
+  // The visualizer now renders from the current step if animating,
+  // or from the stable baseLayout if not.
+  const displayedStep = currentAnimationStep ?? baseLayout;
+  const {
+    nodes,
+    edges,
+    visitorNodeId,
+    highlightedNodeId,
+    deletionHighlightNodeId,
+    invisibleNodes,
+    invisibleEdges,
+  } = displayedStep;
+
+
+  const applyToast = useCallback((step: AnimationStep | undefined) => {
+    if (step?.toast) {
+      toast(step.toast);
+    }
+  }, [toast]);
+    
+  useEffect(() => {
+    if (animationIntervalRef.current) {
+      clearInterval(animationIntervalRef.current);
+    }
+    if (isPlaying && currentStep < animationSteps.length - 1) {
+      const speedMultiplier = 1.75 - (animationSpeed * 0.25);
+      animationIntervalRef.current = setInterval(() => {
+        setCurrentStep(prev => prev + 1);
+      }, ANIMATION_INTERVAL * speedMultiplier);
+    }
+    return () => {
+      if (animationIntervalRef.current) {
+        clearInterval(animationIntervalRef.current);
+      }
+    };
+  }, [isPlaying, currentStep, animationSteps, animationSpeed]);
+  
+  useEffect(() => {
+    if (!isAnimating || !animationSteps[currentStep]) return;
+
+    applyToast(animationSteps[currentStep]);
+
+    if (currentStep >= animationSteps.length - 1) {
+      // When animation finishes, update the base layout to the final step
+      setBaseLayout(animationSteps[currentStep]);
+      setIsAnimating(false);
+      setIsPlaying(false);
+      // We no longer clear the animation steps, so the user can review them.
+    }
+  }, [currentStep, animationSteps, applyToast, isAnimating]);
+
+  const goToStep = useCallback((targetStep: number) => {
+    if (targetStep >= 0 && targetStep < animationSteps.length) {
+      setCurrentStep(targetStep);
+      setIsPlaying(false);
+    }
+  }, [animationSteps]);
+  
+  const startAnimation = useCallback((steps: AnimationStep[]) => {
+    if (isAnimating) {
+        toast({ title: "Animation in progress", description: "Please wait for the current animation to finish.", variant: "destructive" });
+        return;
+    };
+    if (animationIntervalRef.current) clearInterval(animationIntervalRef.current);
+    
+    setAnimationSteps(steps);
+    
+    if (steps.length > 0) {
+      setIsAnimating(true);
+      setCurrentStep(0);
+      if (isAutoPlaying && steps.length > 1) {
+        setIsPlaying(true);
+      } else {
+        setIsPlaying(false);
+      }
+    }
+  }, [isAnimating, toast, isAutoPlaying]);
+  
+  const addNode = useCallback((value: number) => {
+    const events = tree.insert(value);
+    // Prepend the current layout to the start of the events to ensure a smooth start
+    const steps = generateAnimationSteps(events, baseLayout);
+    startAnimation(steps);
+  }, [tree, startAnimation, baseLayout]);
+
+  const removeNode = useCallback((value: number) => {
+    toast({ title: "Not Implemented", description: "The V2 delete operation is not yet implemented.", variant: "destructive" });
+  }, [toast]);
+
+  const searchNode = useCallback((value: number) => {
+    const events = tree.search(value);
+    const steps = generateAnimationSteps(events, baseLayout);
+    startAnimation(steps);
+  }, [tree, startAnimation, baseLayout]);
+
+  const canStepForward = currentStep < animationSteps.length - 1;
+  const canStepBack = currentStep > 0;
+
+  const stepForward = () => {
+    if (canStepForward) goToStep(currentStep + 1);
+  };
+  const stepBack = () => {
+      if (canStepBack) goToStep(currentStep - 1);
+  };
+  const rewind = () => {
+      goToStep(0);
+  };
+  const fastForward = () => {
+      goToStep(animationSteps.length - 1);
+  };
+
+  const togglePlayPause = () => {
+    if (!canStepForward) {
+      setIsPlaying(false);
+      return;
+    }
+    setIsPlaying(prev => !prev);
+  }
+
+  const animationControls: AnimationControls = {
+    currentStep,
+    totalSteps: animationSteps.length > 0 ? animationSteps.length - 1 : 0,
+    isPlaying,
+    isAutoPlaying,
+    canStepBack,
+    canStepForward,
+    goToStep,
+    stepBack,
+    stepForward,
+rewind,
+    fastForward,
+    togglePlayPause,
+    setIsAutoPlaying,
+    animationSpeed,
+    setAnimationSpeed,
+  };
+
+  return { 
+    nodes, 
+    edges, 
+    visitorNodeId, 
+    highlightedNodeId, 
+    deletionHighlightNodeId,
+    isAnimating, 
+    addNode, 
+    removeNode, 
+    searchNode, 
+    invisibleNodes, 
+    invisibleEdges,
+    animationControls,
+    currentAnimationStep: displayedStep,
+  };
+}
+
+    

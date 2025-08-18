@@ -1,75 +1,83 @@
 # Refactor Plan: A Scalable Animation Storyboard Architecture
 
-This document outlines a new architecture for the animation "Director" — the system responsible for generating animation storyboards. It complements the existing plan for a `useSprings`-based rendering "Engine" by defining a more robust and scalable way to create the animations that the engine will execute.
+This document outlines a new architecture for the animation "Director" — the system responsible for generating animation storyboards. The goal is to replace the current, rigid animation producer with a flexible, event-driven model that is more robust, maintainable, and easier to extend.
 
-The core challenge is designing a system that is both powerful enough to create pedagogically clear animations and flexible enough to allow for easy extension with new data structures and operations (e.g., AVL rotations, splaying).
+The refactor will be performed in a series of isolated, incremental steps. We will build the new system in parallel with the old one, accessible via a new `/v2` URL, to allow for verification at each stage without disrupting the working application.
 
 ---
 
 ## 1. Architectural Goal
 
-To replace the current, rigid "state-diffing" animation producer with a flexible, event-driven model where the data structure itself is the source of truth for its animation.
+To replace the current, rigid "state-diffing" animation producer with a flexible, event-driven model where the data structure itself is the single source of truth for its own animation logic.
 
 ---
 
-## 2. Alternative Architectures Considered
+## 2. Proposed Architecture: Keyframe Event Sourcing
 
-Here are three models for generating the animation storyboard (`AnimationStep[]`).
+This is a robust, event-driven model that correctly handles all known use cases, including complex, multi-stage animations (like AVL rotations).
 
-### Alternative 1: State-Diffing Director (The "Before & After" Model)
+### How it Works
 
-This is the model currently used in the `visual-ds-firebase` prototype.
+The system is divided into three cleanly separated parts: The Data Structure, the Snapshot Generator, and the UI Renderer.
 
--   **How it Works:** This is the model currently used in the `visual-ds-firebase` prototype. A "Director" file (`bst-animation-producer.ts`) contains a separate, bespoke algorithm for each data structure operation (e.g., `generateInsertSteps`, `generateDeleteSteps`). Each function knows the specific semantics of its operation and manually constructs a detailed animation storyboard on a case-by-case basis. It uses the `before` and `after` tree states to get the necessary structural and positional data.
--   **Pros:**
-    -   Gives the animator/developer complete, fine-grained control over the final look of the animation.
-    -   Keeps the core data structure logic completely "pure" and unaware of the visualization layer.
--   **Cons:**
-    -   **Extremely Brittle & High Effort:** Adding a new animated operation requires writing a new, complex, and lengthy director function from scratch.
-    -   **Poor Cohesion:** The logic for an operation is completely separated from the logic for its animation, making the system hard to reason about and maintain.
+1.  **The Data Structure (The Event Source):**
+    *   The core data structure methods (e.g., `insert`, `delete`) will be modified to return a **flat array of semantic `AnimationEvent` objects**.
+    *   These events are simple, atomic descriptions of the operation, like `{ type: 'ADD_NODE', ... }`, `{ type: 'REMOVE_EDGE', ... }`, etc.
+    *   Crucially, to handle multi-stage animations, the data structure will also emit a special event: `{ type: 'UPDATE_LAYOUT', tree: <TreeSnapshot> }`. This event acts as a **Keyframe marker**, providing a complete, immutable snapshot of the tree's logical state at a stable intermediate point in the operation.
 
-### Alternative 2: Simple Event Sourcing (The "Single Chapter" Model)
+2.  **The Snapshot Generator (The Director):**
+    *   This is a new, pure function that will take the array of `AnimationEvent`s from the data structure.
+    *   It iterates through the event array, maintaining a "current" visual state.
+    *   When it encounters a regular event (e.g., `ADD_NODE`), it modifies its visual state accordingly.
+    *   When it encounters an `UPDATE_LAYOUT` event, it will use the provided `<TreeSnapshot>` to re-calculate all node coordinates using `dagre`.
+    *   After processing each event, it pushes a new `AnimationStep` (a full snapshot of the complete visual state) to its output array.
+    *   The final output is a single, complete storyboard (`AnimationStep[]`) ready for the UI.
 
-This was the first model we proposed during our discussion.
+3.  **The UI (The Renderer):**
+    *   This layer remains largely unchanged. The new `useBstVisualizerV2` hook will consume the storyboard produced by the Snapshot Generator and feed the `AnimationStep` objects to the existing `BinarySearchTreeVisualizer` component, which renders the visual changes.
 
--   **How it Works:** The data structure's methods (`insert`, `delete`) are modified to emit a single, flat list of semantic *visual events* as they execute their logic. A "Snapshot Generator" then processes this list, using the `before` and `after` layouts as context, to produce the final storyboard.
--   **Pros:**
-    -   **Good Cohesion:** The operational logic and the animation events are generated in the same place, making the code easier to understand.
-    -   **More Extensible:** Adding a new operation is simpler than with the state-diffing model.
--   **Cons:**
-    -   **Fails on Complex Operations:** As you correctly pointed out, this model cannot handle animations that involve multiple, distinct layout changes (like an AVL double rotation or a multi-step splay). It only has knowledge of the final layout, so it cannot correctly render intermediate tree shapes.
+### Advantages of this Model
+
+*   **Single Source of Truth:** The animation is guaranteed to reflect the algorithm's actual execution.
+*   **Highly Extensible:** Adding new complex operations (like self-balancing) is dramatically simplified.
+*   **True Separation of Concerns:**
+    *   Data Structure: Knows **what** to animate.
+    *   Snapshot Generator: Knows **how** to lay out the animation.
+    *   UI: Knows **how to display** the animation.
 
 ---
 
-## 3. Proposed Architecture: Keyframe Event Sourcing (The "Multi-Chapter" Model)
+## 3. Incremental Refactoring Plan
 
-This is the recommended architecture. It is a more robust version of event sourcing that correctly handles all known use cases, including complex, multi-stage animations.
+We will build the new system in parallel to the existing one.
 
--   **How it Works:**
-    The system is divided into three parts: The Data Structure, the Snapshot Generator, and the Rendering Engine.
+### Step 1: Create the V2 Data Structure
 
-    1.  **The Data Structure (Event Source):**
-        -   A method like `splay()` or `avlInsert()` will now return a list of **`Keyframes`**.
-        -   A `Keyframe` represents a single, stable, intermediate state of the tree. It contains two things:
-            1.  `treeState`: A complete, immutable snapshot of the data structure at that point in the operation.
-            2.  `events`: A list of semantic visual events (`VISIT`, `MOVE_NODE_TO_POSITION_OF`, `FINALIZE`, etc.) that describe the transition *from the previous keyframe to this one*.
+*   **Action:** Create a new file: `src/lib/ds/bst-v2.ts`.
+*   **Goal:** Implement a new `BinarySearchTreeV2` class. Its public methods (`insert`, `delete`) will not return a new tree instance. Instead, they will return a flat array of `AnimationEvent` objects, including the critical `{ type: 'UPDATE_LAYOUT', tree: <TreeSnapshot> }` event for keyframes.
 
-    2.  **The Snapshot Generator (Director):**
-        -   This is a new, pure function that takes the initial tree and the list of `Keyframes`.
-        -   It iterates through the keyframes, calculating the layout for each `treeState`.
-        -   For each keyframe, it processes the associated `events`, using the previous keyframe's layout as the starting point and the current keyframe's layout as the ending point.
-        -   The `FINALIZE` event at the end of each keyframe's event list triggers the final animation to the new stable layout.
-        -   The output is a single, complete storyboard (`AnimationStep[]`) for the entire operation.
+### Step 2: Create the V2 Snapshot Generator
 
-    3.  **The `useSprings` Engine (Renderer):**
-        -   This is the component described in the original refactor plan. It consumes the storyboard produced by the Snapshot Generator and executes the visual changes.
+*   **Action:** Create a new file: `src/lib/animation/snapshot-generator.ts`.
+*   **Goal:** Implement a `generateAnimationSteps(events: AnimationEvent[])` function. This function will replace the old `bst-animation-producer.ts`. It will be responsible for turning the event stream into a final `AnimationStep[]` storyboard.
 
--   **Pros:**
-    -   **Highly Extensible & Scalable:** It can model any operation, no matter how complex, by breaking it down into a series of stable keyframes.
-    -   **Maintains Cohesion:** The data structure remains the source of truth for its own logic and animation steps.
-    -   **Separation of Concerns:** The data structure handles *what* to animate (semantic events), the Snapshot Generator handles *how* to animate it (creating the storyboard), and the Engine handles *doing* the animation (rendering).
+### Step 3: Create the V2 UI Hook
 
--   **Cons:**
-    -   **Increased Memory Usage:** It requires storing intermediate, immutable copies of the data structure during an operation. This is a standard trade-off for this pattern and is acceptable for the scale of this application.
+*   **Action:** Create a new file: `src/hooks/use-bst-visualizer-v2.ts`.
+*   **Goal:** This hook will be the controller for the new system.
+*   **Logic:**
+    1.  It will hold an instance of `BinarySearchTreeV2`.
+    2.  On a user action (e.g., `addNode(5)`), it will call the `BinarySearchTreeV2` method.
+    3.  It will pass the resulting `AnimationEvent[]` to the `generateAnimationSteps()` function from Step 2.
+    4.  It will then manage the playback of the final `AnimationStep[]` storyboard, exposing the same props to the UI as the original hook.
 
-This "Keyframe" model provides the best balance of flexibility, power, and maintainability, setting a strong foundation for future development.
+### Step 4: Create the V2 Entry Point
+
+*   **Action:** Create a new page file: `src/app/v2/page.tsx`.
+*   **Goal:** Create a new, separate page to host the V2 implementation.
+*   **Logic:**
+    *   This page will use the new `useBstVisualizerV2` hook.
+    *   It will **reuse** the existing, presentation-only components: `BinarySearchTreeVisualizer` and `Controls`.
+    *   A temporary link can be added to the main page (`/`) to navigate to `/v2` for testing.
+
+By following these steps, we can build and validate the new, superior architecture piece by piece, ensuring a stable and successful refactor.

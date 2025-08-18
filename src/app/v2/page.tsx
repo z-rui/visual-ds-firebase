@@ -3,13 +3,13 @@
 
 import { BinarySearchTreeVisualizer } from "@/components/visual-ds/binary-search-tree-visualizer";
 import { Controls } from "@/components/visual-ds/controls";
-import { useBstVisualizer } from "@/hooks/use-bst-visualizer";
+import { useBstVisualizerV2 } from "@/hooks/use-bst-visualizer-v2";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Github, Link as LinkIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from 'next/link';
 
-export default function Home() {
+export default function V2Page() {
   const {
     nodes,
     edges,
@@ -24,18 +24,18 @@ export default function Home() {
     invisibleEdges,
     animationControls,
     currentAnimationStep,
-  } = useBstVisualizer();
+  } = useBstVisualizerV2();
 
   return (
     <main className="flex min-h-screen w-full flex-col items-center bg-background p-4 sm:p-6 md:p-8">
       <div className="w-full max-w-7xl">
         <header className="mb-6 flex items-center justify-between">
-          <h1 className="text-3xl font-bold text-primary">Visual DS (V1)</h1>
-          <div className="flex items-center gap-2">
+          <h1 className="text-3xl font-bold text-primary">Visual DS (V2)</h1>
+           <div className="flex items-center gap-2">
             <Button variant="outline" asChild>
-              <Link href="/v2">
+              <Link href="/">
                 <LinkIcon className="mr-2 h-4 w-4" />
-                Go to V2
+                Go to V1
               </Link>
             </Button>
             <Button variant="ghost" size="icon" asChild>
