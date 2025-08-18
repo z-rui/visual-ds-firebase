@@ -25,7 +25,7 @@ export default function Home() {
 
   return (
     <main className="flex min-h-screen w-full flex-col items-center bg-background p-4 sm:p-6 md:p-8">
-      <div className="w-full max-w-7xl">
+      <div className="flex h-full w-full max-w-7xl flex-col">
         <header className="mb-6 flex items-center justify-between">
           <h1 className="text-3xl font-bold text-primary">Visual DS</h1>
            <div className="flex items-center gap-2">
@@ -36,7 +36,7 @@ export default function Home() {
             </Button>
           </div>
         </header>
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+        <div className="grid flex-grow grid-cols-1 gap-6 lg:grid-cols-12">
           <div className="lg:col-span-3">
             <Controls
               onAdd={addNode}
@@ -47,12 +47,12 @@ export default function Home() {
               currentAnimationStep={currentAnimationStep}
             />
           </div>
-          <div className="lg:col-span-9">
-            <Card>
+          <div className="flex flex-col lg:col-span-9">
+            <Card className="flex flex-grow flex-col">
               <CardHeader>
                 <CardTitle>Binary Search Tree</CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="flex-grow">
                 <BinarySearchTreeVisualizer
                   nodes={nodes}
                   edges={edges}

@@ -25,11 +25,11 @@ const Node = React.memo(({ node, nodeStyle }: { node: VisualNode, nodeStyle?: No
     <motion.g
       layoutId={node.id}
       initial={{ opacity: 0, scale: 0.5, x: node.x, y: node.y }}
-      animate={{ 
-        opacity: nodeStyle?.invisible ? 0 : 1, 
-        scale: 1, 
-        x: node.x, 
-        y: node.y 
+      animate={{
+        opacity: nodeStyle?.invisible ? 0 : 1,
+        scale: 1,
+        x: node.x,
+        y: node.y
       }}
       exit={{ opacity: 0, scale: 0.5 }}
       transition={{ duration: 0.5, ease: "easeInOut" }}
@@ -57,7 +57,7 @@ const Edge = React.memo(({ from, to, edgeStyle }: { from: VisualNode; to: Visual
   return (
     <motion.line
       layoutId={`edge-${from.id}-${to.id}`}
-      initial={{ 
+      initial={{
         opacity: 0,
         x1: from.x,
         y1: from.y,
@@ -117,7 +117,7 @@ export function BinarySearchTreeVisualizer({
 
     return () => resizeObserver.unobserve(svgElement);
   }, []);
-  
+
   const viewBox = useMemo(() => {
     if (nodes.length === 0 || svgSize.width === 0 || svgSize.height === 0) {
       return `0 0 1 1`;
@@ -133,11 +133,11 @@ export function BinarySearchTreeVisualizer({
 
     const contentWidth = (maxX - minX) + NODE_DIAMETER;
     const contentHeight = (maxY - minY) + NODE_DIAMETER;
-    
+
     if (contentWidth <= 0 || contentHeight <= 0) {
       return `0 0 1 1`;
     }
-    
+
     const scaleX = svgSize.width / contentWidth;
     const scaleY = svgSize.height / contentHeight;
     const scale = Math.min(scaleX, scaleY, 1);
@@ -146,7 +146,7 @@ export function BinarySearchTreeVisualizer({
     const viewBoxHeight = svgSize.height / scale;
     const viewBoxX = minX + (contentWidth - NODE_DIAMETER) / 2 - viewBoxWidth / 2;
     const viewBoxY = minY + (contentHeight - NODE_DIAMETER) / 2 - viewBoxHeight / 2;
-    
+
     return `${viewBoxX} ${viewBoxY} ${viewBoxWidth} ${viewBoxHeight}`;
   }, [nodes, svgSize]);
 
@@ -157,9 +157,9 @@ export function BinarySearchTreeVisualizer({
   }, [visitorNodeId, nodeMap]);
 
   return (
-    <motion.svg 
-        ref={svgRef} 
-        className="w-full h-[600px]" 
+    <motion.svg
+        ref={svgRef}
+        className="h-full w-full min-h-[400px]"
         aria-label="Binary Search Tree visualization"
         animate={{ viewBox }}
         transition={{ duration: 0.5, ease: "easeInOut" }}
@@ -195,7 +195,7 @@ export function BinarySearchTreeVisualizer({
               strokeWidth={2}
               strokeDasharray="4 4"
               initial={{ opacity: 0 }}
-              animate={{ 
+              animate={{
                 opacity: 1,
                 cx: visitorPosition.x,
                 cy: visitorPosition.y
