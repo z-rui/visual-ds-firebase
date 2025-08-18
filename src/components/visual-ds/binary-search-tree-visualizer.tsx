@@ -164,28 +164,20 @@ export function BinarySearchTreeVisualizer({
         animate={{ viewBox }}
         transition={{ duration: 0.5, ease: "easeInOut" }}
     >
-        <g>
-            <AnimatePresence>
-            {edges.map((edge) => {
-                const fromNode = nodeMap.get(edge.from);
-                const toNode = nodeMap.get(edge.to);
-                if (!fromNode || !toNode) return null;
-                return <Edge key={edge.id} from={fromNode} to={toNode} edgeStyle={edgeStyles.get(edge.id)} />;
-            })}
-            </AnimatePresence>
-        </g>
-        <g>
-            <AnimatePresence>
-            {nodes.map((node) => (
-                <Node
-                    key={node.id}
-                    node={node}
-                    nodeStyle={nodeStyles.get(node.id)}
-                />
-            ))}
-            </AnimatePresence>
-        </g>
         <AnimatePresence>
+          {edges.map((edge) => {
+              const fromNode = nodeMap.get(edge.from);
+              const toNode = nodeMap.get(edge.to);
+              if (!fromNode || !toNode) return null;
+              return <Edge key={edge.id} from={fromNode} to={toNode} edgeStyle={edgeStyles.get(edge.id)} />;
+          })}
+          {nodes.map((node) => (
+              <Node
+                  key={node.id}
+                  node={node}
+                  nodeStyle={nodeStyles.get(node.id)}
+              />
+          ))}
           {visitorPosition && (
             <motion.circle
               layoutId="visitor-circle"
@@ -194,7 +186,7 @@ export function BinarySearchTreeVisualizer({
               stroke="hsl(var(--accent))"
               strokeWidth={4}
               strokeDasharray="4 4"
-              initial={{ opacity: 0 }}
+              initial={{ opacity: 0, cx: visitorPosition.x, cy: visitorPosition.y }}
               animate={{
                 opacity: 1,
                 cx: visitorPosition.x,

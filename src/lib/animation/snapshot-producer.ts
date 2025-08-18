@@ -19,7 +19,7 @@ export class SnapshotProducer implements AnimationProducer {
   private currentState: AnimationStep;
 
   constructor(initialLayout: AnimationStep) {
-    this.currentState = this.cloneStep(initialLayout);
+    this.currentState = initialLayout;
     // Start with the initial layout as the first "step"
     this.pushStep({ type: 'start' });
   }
@@ -35,11 +35,13 @@ export class SnapshotProducer implements AnimationProducer {
   }
 
   private pushStep(action: Record<string, any>, toast?: ToastMessage) {
-    this.steps.push({
-      ...this.cloneStep(this.currentState),
-      action,
-      toast,
-    });
+      this.steps.push({
+        ...this.currentState,
+        nodeStyles: new Map(this.currentState.nodeStyles),
+        edgeStyles: new Map(this.currentState.edgeStyles),
+        action,
+        toast,
+      });
   }
 
   visitNode(nodeId: string, value: number): void {
@@ -74,47 +76,14 @@ export class SnapshotProducer implements AnimationProducer {
 
   updateLayout(tree: BinaryTreeNode | null): void {
     const newLayout = this.calculateLayoutFromTree(tree);
-    const oldNodeMap = new Map(this.currentState.nodes.map(n => [n.id, n]));
-    const oldEdgeMap = new Map(this.currentState.edges.map(e => [e.id, e]));
 
-    // Push the re-layout step. Only existing nodes/edges move.
-    this.currentState.nodes = newLayout.nodes.map(newNode => ({
-        ...newNode,
-        // Preserve invisibility during layout shift
-        ...this.currentState.nodeStyles.get(newNode.id),
-    }));
-    // Only animate the edges that already existed.
-    this.currentState.edges = this.currentState.edges.filter(e => newLayout.edges.some(ne => ne.id === e.id));
-    this.pushStep({ type: 're-layout' });
-
-    // Now, introduce the new nodes and edges, making them appear.
-    const edgesToReveal: string[] = [];
-    newLayout.edges.forEach(newEdge => {
-      if (!oldEdgeMap.has(newEdge.id)) {
-        this.currentState.edgeStyles.set(newEdge.id, { invisible: true });
-        edgesToReveal.push(newEdge.id);
-      }
-    });
-
-    // Update the state to include all new edges and nodes
-    this.currentState.edges = newLayout.edges;
+    this.currentState.nodeStyles.clear();
+    this.currentState.visitorNodeId = null;
     this.currentState.nodes = newLayout.nodes;
-
-
-    // Un-hide any nodes that are new
-    this.currentState.nodes.forEach(node => {
-        if (!oldNodeMap.has(node.id)) {
-            const currentStyle = this.currentState.nodeStyles.get(node.id) || {};
-            this.currentState.nodeStyles.set(node.id, { ...currentStyle, invisible: false });
-        }
-    });
-
-    // Reveal the new edges
-    edgesToReveal.forEach(edgeId => {
-      this.currentState.edgeStyles.set(edgeId, { invisible: false });
-    });
-    
-    this.pushStep({ type: 'reveal' });
+    this.pushStep({ type: 'UPDATE_LAYOUT_NODES' });
+    this.currentState.edgeStyles.clear();
+    this.currentState.edges = newLayout.edges;
+    this.pushStep({ type: 'UPDATE_LAYOUT_EDGES' });
   }
 
   endOperation(toast?: ToastMessage): void {
