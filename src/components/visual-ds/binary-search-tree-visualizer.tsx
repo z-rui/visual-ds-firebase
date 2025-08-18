@@ -192,7 +192,7 @@ export function BinarySearchTreeVisualizer({
               r={NODE_RADIUS + 4}
               fill="none"
               stroke="hsl(var(--accent))"
-              strokeWidth={2}
+              strokeWidth={4}
               strokeDasharray="4 4"
               initial={{ opacity: 0 }}
               animate={{
