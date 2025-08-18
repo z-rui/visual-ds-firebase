@@ -33,11 +33,6 @@ export default function Home() {
         <header className="mb-6 flex items-center justify-between">
           <h1 className="text-3xl font-bold text-primary">Visual DS</h1>
            <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" asChild>
-              <a href="https://github.com/firebase/genkit-plugins/tree/main/apps/visual-ds" target="_blank" rel="noopener noreferrer">
-                <Github className="h-6 w-6" />
-              </a>
-            </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon">
@@ -58,7 +53,12 @@ export default function Home() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-          </div>
+            <Button variant="ghost" size="icon" asChild>
+              <a href="https://github.com/z-rui/visual-ds-firebase/" target="_blank" rel="noopener noreferrer">
+                <Github className="h-6 w-6" />
+              </a>
+            </Button>
+            </div>
         </header>
         <div className="grid flex-grow grid-cols-1 gap-6 lg:grid-cols-12">
           <div className="lg:col-span-3">
