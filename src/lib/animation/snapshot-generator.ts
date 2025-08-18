@@ -115,21 +115,12 @@ export function generateAnimationSteps(events: AnimationEvent[], initialLayout?:
 
   for (const event of events) {
     switch (event.type) {
-      case 'START_OPERATION':
-        // Reset visual state at the beginning of an operation
-        currentStepState.visitorNodeId = null;
-        currentStepState.highlightedNodeId = null;
-        currentStepState.deletionHighlightNodeId = null;
-        pushStep({ type: event.type, operation: event.operation, value: event.value });
-        break;
-
       case 'VISIT_NODE':
         currentStepState.visitorNodeId = event.nodeId;
         pushStep({ type: event.type, value: event.value });
         break;
 
       case 'HIGHLIGHT_NODE':
-        currentStepState.visitorNodeId = null;
         if (event.reason === 'deletion') {
             currentStepState.deletionHighlightNodeId = event.nodeId;
         } else {
@@ -137,30 +128,45 @@ export function generateAnimationSteps(events: AnimationEvent[], initialLayout?:
         }
         pushStep({ type: event.type, reason: event.reason });
         break;
+
+      case 'HIDE_NODE':
+        currentStepState.invisibleNodes.add(event.nodeId);
+        pushStep({ type: event.type, nodeId: event.nodeId });
+        break;
+      
+      case 'HIDE_EDGE':
+        event.edgeIds.forEach(edgeId => currentStepState.invisibleEdges.add(edgeId));
+        pushStep({ type: event.type, edgeIds: event.edgeIds });
+        break;
       
       case 'UPDATE_LAYOUT': {
         const newLayout = calculateLayoutFromTree(event.tree);
-        const oldNodeIds = new Set(currentStepState.nodes.map(n => n.id));
-        const newNodes = newLayout.nodes.filter(n => !oldNodeIds.has(n.id));
-
-        const oldEdgeIds = new Set(currentStepState.edges.map(e => e.id));
-        const newEdges = newLayout.edges.filter(e => !oldEdgeIds.has(e.id));
         
-        // 1. Step with new layout but new elements are invisible
+        const oldNodeMap = new Map(currentStepState.nodes.map(n => [n.id, n]));
+
+        const newNodes = newLayout.nodes.filter(n => !oldNodeMap.has(n.id));
+        const newEdges = newLayout.edges.filter(e => !currentStepState.edges.some(ce => ce.id === e.id));
+        
         currentStepState.nodes = newLayout.nodes;
         currentStepState.edges = newLayout.edges;
-        currentStepState.visitorNodeId = null;
-        currentStepState.invisibleNodes = new Set(newNodes.map(n => n.id));
-        currentStepState.invisibleEdges = new Set(newEdges.map(e => e.id));
-        pushStep({ type: 'add-invisible' });
         
-        // 2. Step to reveal the new node
-        currentStepState.invisibleNodes.clear();
-        pushStep({ type: 'reveal-node' });
+        const newlyInvisibleNodes = new Set(newNodes.map(n => n.id));
+        currentStepState.invisibleNodes = new Set([...currentStepState.invisibleNodes, ...newlyInvisibleNodes]);
         
-        // 3. Step to reveal the new edge
-        currentStepState.invisibleEdges.clear();
-        pushStep({ type: 'reveal-edge' });
+        const newlyInvisibleEdges = new Set(newEdges.map(e => e.id));
+        currentStepState.invisibleEdges = new Set([...currentStepState.invisibleEdges, ...newlyInvisibleEdges]);
+
+        pushStep({ type: 're-layout' });
+        
+        if (newlyInvisibleNodes.size > 0) {
+            newlyInvisibleNodes.forEach(id => currentStepState.invisibleNodes.delete(id));
+            pushStep({ type: 'reveal-node' });
+        }
+        
+        if (newlyInvisibleEdges.size > 0) {
+            newlyInvisibleEdges.forEach(id => currentStepState.invisibleEdges.delete(id));
+            pushStep({ type: 'reveal-edge' });
+        }
 
         break;
       }
@@ -170,11 +176,6 @@ export function generateAnimationSteps(events: AnimationEvent[], initialLayout?:
         currentStepState.highlightedNodeId = null;
         currentStepState.deletionHighlightNodeId = null;
         pushStep({ type: 'end' }, event.toast);
-        break;
-        
-      case 'REMOVE_NODE':
-      case 'REMOVE_EDGE':
-        // Placeholder for future implementation
         break;
     }
   }

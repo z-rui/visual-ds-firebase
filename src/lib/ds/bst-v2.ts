@@ -24,7 +24,7 @@ export class BinarySearchTreeV2 {
   constructor(initialData: number[] = []) {
     this.root = null;
     this.nodeIdCounter = 0;
-    initialData.forEach(value => this.insert(value, true));
+    initialData.forEach(value => this.insert(value));
   }
 
   /**
@@ -48,9 +48,7 @@ export class BinarySearchTreeV2 {
   }
   
   public search(value: number): AnimationEvent[] {
-    const events: AnimationEvent[] = [
-      { type: 'START_OPERATION', operation: 'search', value },
-    ];
+    const events: AnimationEvent[] = [];
     let current = this.root;
     while (current) {
       events.push({ type: 'VISIT_NODE', nodeId: current.id, value: current.value });
@@ -65,67 +63,157 @@ export class BinarySearchTreeV2 {
     return events;
   }
 
-  public insert(value: number, isInitialization: boolean = false): AnimationEvent[] {
-    const events: AnimationEvent[] = isInitialization ? [] : [
-      { type: 'START_OPERATION', operation: 'insert', value },
-    ];
+  public insert(value: number): AnimationEvent[] {
+    const events: AnimationEvent[] = [];
+
+    // Check for duplicates first
+    let check = this.root;
+    while(check) {
+      if (value === check.value) {
+        events.push({ type: 'VISIT_NODE', nodeId: check.id, value: check.value });
+        events.push({ type: 'END_OPERATION', toast: { title: 'Duplicate', description: `Node with value ${value} already exists.`, variant: 'destructive' } });
+        return events;
+      }
+      check = value < check.value ? check.left : check.right;
+    }
 
     if (!this.root) {
       const newNodeId = this.getNextId();
       this.root = new BinaryTreeNode(value, newNodeId);
-      if (!isInitialization) {
-        events.push({
-          type: 'UPDATE_LAYOUT',
-          tree: this.cloneTree(this.root)!,
-          description: 'Initial layout with new root node.',
-        });
-        events.push({ type: 'END_OPERATION' });
-      }
+      events.push({
+        type: 'UPDATE_LAYOUT',
+        tree: this.cloneTree(this.root)!,
+        description: 'Initial layout with new root node.',
+      });
+      events.push({ type: 'END_OPERATION' });
       return events;
     }
 
     let current = this.root;
-    let parent: BinaryTreeNode | null = null;
     
     while (current) {
-      if (!isInitialization) {
-        events.push({ type: 'VISIT_NODE', nodeId: current.id, value: current.value });
-      }
-      if (value === current.value) {
-        if (!isInitialization) {
-          events.push({ type: 'END_OPERATION', toast: { title: 'Duplicate', description: `Node with value ${value} already exists.`, variant: 'destructive' } });
-        }
-        return events; // No duplicates allowed
-      }
-      parent = current;
+      events.push({ type: 'VISIT_NODE', nodeId: current.id, value: current.value });
       if (value < current.value) {
+        if (!current.left) {
+            current.left = new BinaryTreeNode(value, this.getNextId());
+            break;
+        }
         current = current.left;
       } else {
+        if (!current.right) {
+            current.right = new BinaryTreeNode(value, this.getNextId());
+            break;
+        }
         current = current.right;
       }
     }
     
-    const newNodeId = this.getNextId();
-    const newNode = new BinaryTreeNode(value, newNodeId);
-    if (value < parent!.value) {
-      parent!.left = newNode;
-    } else {
-      parent!.right = newNode;
-    }
-    
-    if (!isInitialization) {
-      events.push({
-        type: 'UPDATE_LAYOUT',
-        tree: this.cloneTree(this.root)!,
-        description: 'Tree layout updated to accommodate new node.',
-      });
-      events.push({ type: 'END_OPERATION' });
-    }
+    events.push({
+      type: 'UPDATE_LAYOUT',
+      tree: this.cloneTree(this.root)!,
+      description: 'Tree layout updated to accommodate new node.',
+    });
+    events.push({ type: 'END_OPERATION' });
     
     return events;
   }
-}
 
-// NOTE: The 'delete' method is intentionally omitted for now.
-// It is the most complex and will be implemented in a subsequent step
-// to keep this change focused on establishing the V2 foundation.
+  public delete(value: number): AnimationEvent[] {
+    const events: AnimationEvent[] = [];
+    
+    const deleteRec = (node: BinaryTreeNode | null, val: number, parent: BinaryTreeNode | null): BinaryTreeNode | null => {
+        if (!node) {
+            events.push({ type: 'END_OPERATION', toast: { title: 'Not Found', description: `Node with value ${val} not found.`, variant: 'destructive' } });
+            return null;
+        }
+        
+        events.push({ type: 'VISIT_NODE', nodeId: node.id, value: node.value });
+
+        if (val < node.value) {
+            node.left = deleteRec(node.left, val, node);
+        } else if (val > node.value) {
+            node.right = deleteRec(node.right, val, node);
+        } else {
+            // This is the node to be deleted
+            if (events.every(e => e.type !== 'HIGHLIGHT_NODE')) {
+                events.push({ type: 'HIGHLIGHT_NODE', nodeId: node.id, reason: 'deletion' });
+            }
+
+            // Case 1 & 2: Leaf node or one child
+            if (!node.left || !node.right) {
+                const child = node.left || node.right;
+                const edgesToHide: string[] = [];
+                if (parent) edgesToHide.push(`${parent.id}-${node.id}`);
+                if (child) edgesToHide.push(`${node.id}-${child.id}`);
+                
+                if (edgesToHide.length > 0) {
+                    events.push({ type: 'HIDE_EDGE', edgeIds: edgesToHide });
+                }
+                events.push({ type: 'HIDE_NODE', nodeId: node.id });
+                return child;
+            }
+            
+            // Case 3: Two children
+            let successorParent = node;
+            let successor = node.right;
+            events.push({ type: 'VISIT_NODE', nodeId: successor.id, value: successor.value });
+
+            while (successor.left) {
+                successorParent = successor;
+                successor = successor.left;
+                events.push({ type: 'VISIT_NODE', nodeId: successor.id, value: successor.value });
+            }
+            events.push({ type: 'HIGHLIGHT_NODE', nodeId: successor.id, reason: 'successor' });
+
+            // Unlink successor from its original position
+            const successorEdgesToHide = [`${successorParent.id}-${successor.id}`];
+            if (successor.right) {
+                successorEdgesToHide.push(`${successor.id}-${successor.right.id}`);
+            }
+            events.push({ type: 'HIDE_EDGE', edgeIds: successorEdgesToHide });
+
+            // Unlink target node from parent and children
+            const targetEdgesToHide: string[] = [];
+            if (parent) {
+                targetEdgesToHide.push(`${parent.id}-${node.id}`);
+            }
+            targetEdgesToHide.push(`${node.id}-${node.left!.id}`);
+            targetEdgesToHide.push(`${node.id}-${node.right!.id}`);
+            events.push({ type: 'HIDE_EDGE', edgeIds: targetEdgesToHide });
+            
+            events.push({ type: 'HIDE_NODE', nodeId: node.id });
+            
+            // Delete the successor from its original position
+            if (successorParent === node) {
+                successorParent.right = successor.right;
+            } else {
+                successorParent.left = successor.right;
+            }
+            
+            // Replace the target node with the successor
+            successor.left = node.left;
+            successor.right = node.right;
+            
+            return successor;
+        }
+        return node;
+    };
+
+    const newRoot = deleteRec(this.root, value, null);
+
+    // Only update layout if a node was actually found and deleted
+    if (!events.some(e => e.type === 'END_OPERATION' && e.toast?.title === 'Not Found')) {
+        this.root = newRoot;
+        if (this.root) {
+            events.push({
+                type: 'UPDATE_LAYOUT',
+                tree: this.cloneTree(this.root)!,
+                description: 'Tree layout updated after deletion.'
+            });
+        }
+        events.push({ type: 'END_OPERATION' });
+    }
+
+    return events;
+  }
+}

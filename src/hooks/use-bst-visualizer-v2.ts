@@ -16,12 +16,13 @@ const initialTreeData = [50, 25, 75, 12, 37, 62, 87, 6, 18, 31, 43, 56, 68, 81, 
 const getInitialLayout = (tree: BinarySearchTreeV2): AnimationStep => {
   const root = tree.getRoot();
   if (root) {
+    // Generate a single step representing the final, stable layout
     const initialSteps = generateAnimationSteps([{
       type: 'UPDATE_LAYOUT',
       tree: root,
       description: 'Initial tree load',
     }]);
-    return initialSteps[initialSteps.length - 1]; // Return the final, stable layout
+    return initialSteps[initialSteps.length - 1]; 
   }
   return {
     nodes: [],
@@ -103,7 +104,6 @@ export function useBstVisualizerV2() {
       setBaseLayout(animationSteps[currentStep]);
       setIsAnimating(false);
       setIsPlaying(false);
-      // We no longer clear the animation steps, so the user can review them.
     }
   }, [currentStep, animationSteps, applyToast, isAnimating]);
 
@@ -130,20 +130,22 @@ export function useBstVisualizerV2() {
         setIsPlaying(true);
       } else {
         setIsPlaying(false);
+        applyToast(steps[0]);
       }
     }
-  }, [isAnimating, toast, isAutoPlaying]);
+  }, [isAnimating, toast, isAutoPlaying, applyToast]);
   
   const addNode = useCallback((value: number) => {
     const events = tree.insert(value);
-    // Prepend the current layout to the start of the events to ensure a smooth start
     const steps = generateAnimationSteps(events, baseLayout);
     startAnimation(steps);
   }, [tree, startAnimation, baseLayout]);
 
   const removeNode = useCallback((value: number) => {
-    toast({ title: "Not Implemented", description: "The V2 delete operation is not yet implemented.", variant: "destructive" });
-  }, [toast]);
+    const events = tree.delete(value);
+    const steps = generateAnimationSteps(events, baseLayout);
+    startAnimation(steps);
+  }, [tree, startAnimation, baseLayout]);
 
   const searchNode = useCallback((value: number) => {
     const events = tree.search(value);
@@ -185,7 +187,7 @@ export function useBstVisualizerV2() {
     goToStep,
     stepBack,
     stepForward,
-rewind,
+    rewind,
     fastForward,
     togglePlayPause,
     setIsAutoPlaying,
@@ -209,5 +211,3 @@ rewind,
     currentAnimationStep: displayedStep,
   };
 }
-
-    

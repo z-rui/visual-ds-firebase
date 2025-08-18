@@ -44,7 +44,7 @@ The application is built upon a three-layer architecture that strictly separates
     -   **`BinarySearchTreeVisualizer` (Renderer):**
         -   A **pure SVG component**. All elements—nodes (as `<g>` groups containing a `<circle>` and `<text>`), edges (as `<line>`s), and highlights—are rendered within a single `<motion.svg>` canvas.
         -   This unified rendering context eliminates synchronization issues between different rendering technologies (like HTML and SVG).
-        -   It uses `framer-motion` to render the visual elements and animate them smoothly between states. It does not contain complex layout logic; it only renders what it's told based on the `AnimationStep` it receives.
+        -   It uses `framer-motion` to render the visual elements and animate them between states. It does not contain complex layout logic; it only renders what it's told based on the `AnimationStep` it receives.
         -   All panning and zooming is handled by smoothly animating the SVG's `viewBox` attribute, which guarantees that all child elements transform as a single, cohesive unit.
     -   **`Controls` (Controls):**
         -   Provides the UI for the user to trigger actions and control the animation playback.
@@ -76,23 +76,20 @@ The animation system is designed to be declarative and robust, ensuring a clear 
 #### 4. Deletion Animation Sequence (Leaf & Single-Child Cases)
 1.  **Search:** A "visitor" highlight traverses the tree to find the target node.
 2.  **Highlight for Deletion:** The target node is highlighted with the destructive (red) color.
-3.  **Fade Out Parent Edge:** The edge connecting the target node to its parent fades out.
-4.  **Fade Out Child Edge (if applicable):** If the target node has one child, the edge connecting them fades out.
-5.  **Fade Out Node:** The target node itself fades out.
-6.  **Fade In New Edge (if applicable):** In the single-child case, a new edge connecting the child to the target node's parent fades into view.
-7.  **Update Layout:** The tree structure animates smoothly to its final layout.
+3.  **Unlink Node:** The edges connecting the target node to its parent and its single child (if any) fade out simultaneously.
+4.  **Fade Out Node:** The target node itself fades out.
+5.  **Update Layout:** The tree structure animates smoothly to its final layout, with a new edge connecting the child to the target node's parent fading in.
 
 #### 5. Deletion Animation Sequence (Two-Child Case)
 This sequence applies when deleting a node with two children, using its in-order successor.
 
 1.  **Search:** A "visitor" highlight traverses the tree to find the target node.
-2.  **Highlight for Deletion:** The target node is highlighted with the destructive (red) color.
+2.  **Highlight for Deletion:** The target node is highlighted with the destructive (red) color. The visitor highlight remains.
 3.  **Find Successor:** The visitor highlight traverses from the target's right child to find the in-order successor.
-4.  **Unlink Successor from Parent:** The edge from the successor to its parent fades out.
-5.  **Unlink Successor from Child (if applicable):** If the successor has a right child, the edge to that child fades out.
-6.  **Re-wire Successor's Child (if applicable):** If the previous step occurred, a new edge fades in to connect the successor's right child to the successor's original parent.
-7.  **Unlink Target's Children:** The edges connecting the original target node to its children fade out.
-8.  **Fade Out Node:** The original target node fades out from its position.
-9.  **Move Successor:** The successor node animates smoothly from its original position to the position of the target node.
-10. **Link Successor to Target's Children:** New edges fade into view, connecting the successor (now in its new position) to the children of the original target node.
-11. **Update Layout:** The entire tree animates into its new, final structure.
+4.  **Unlink Successor:** In a single step, the edges connecting the successor to its parent and its own right child (if any) fade out.
+5.  **Unlink Target:** In a single step, the edges connecting the original target node to its parent and its two children fade out.
+6.  **Fade Out Node:** The original target node fades out from its position.
+7.  **Update Layout:** A keyframe update occurs. The entire tree animates into its new, final structure. During this animation:
+    * The successor node animates smoothly from its original position to the position of the deleted node.
+    * New edges fade into view, connecting the successor to the target's original children and the target's original parent.
+    * The successor's original right child (if it existed) animates to its new position, connected to the successor's original parent.

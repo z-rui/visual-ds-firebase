@@ -11,10 +11,9 @@ import type { BinaryTreeNode } from "@/lib/ds/bst-v2";
  * the entire visual layout based on the provided tree snapshot.
  */
 export type AnimationEvent =
-  | { type: 'START_OPERATION'; operation: 'insert' | 'delete' | 'search'; value: number }
   | { type: 'VISIT_NODE'; nodeId: string; value: number }
-  | { type: 'REMOVE_NODE'; nodeId: string }
-  | { type: 'REMOVE_EDGE'; from: string; to: string }
   | { type: 'HIGHLIGHT_NODE'; nodeId: string; reason: 'found' | 'successor' | 'deletion' }
+  | { type: 'HIDE_NODE'; nodeId: string }
+  | { type: 'HIDE_EDGE'; edgeIds: string[] }
   | { type: 'UPDATE_LAYOUT'; tree: BinaryTreeNode; description: string }
   | { type: 'END_OPERATION'; toast?: { title: string; description: string; variant?: 'destructive' } };
