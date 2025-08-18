@@ -2,10 +2,11 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { BinarySearchTree } from '@/lib/ds/bst';
+import { BinarySearchTree, BinaryTreeNode } from '@/lib/ds/bst';
 import type { AnimationStep, NodeStyle, EdgeStyle } from '@/types/bst';
 import { useToast } from "@/hooks/use-toast";
-import { generateAnimationSteps } from '@/lib/animation/snapshot-generator';
+import { SnapshotProducer } from '@/lib/animation/snapshot-producer';
+import dagre from 'dagre';
 
 export interface AnimationControls {
   currentStep: number;
@@ -25,30 +26,23 @@ export interface AnimationControls {
   setAnimationSpeed: (speed: number) => void;
 }
 
-
 const ANIMATION_INTERVAL = 750; // Base interval for auto-play
 
 const initialTreeData = [50, 25, 75, 12, 37, 62, 87, 6, 18, 31, 43, 56, 68, 81, 93];
 
 // Helper to calculate the initial layout.
 const getInitialLayout = (tree: BinarySearchTree): AnimationStep => {
-  const root = tree.getRoot();
-  if (root) {
-    // Generate a single step representing the final, stable layout
-    const initialSteps = generateAnimationSteps([{
-      type: 'UPDATE_LAYOUT',
-      tree: root,
-      description: 'Initial tree load',
-    }]);
-    return initialSteps[initialSteps.length - 1]; 
-  }
-  return {
-    nodes: [],
-    edges: [],
-    visitorNodeId: null,
-    nodeStyles: new Map<string, NodeStyle>(),
-    edgeStyles: new Map<string, EdgeStyle>(),
-  };
+    const producer = new SnapshotProducer({
+        nodes: [],
+        edges: [],
+        visitorNodeId: null,
+        nodeStyles: new Map(),
+        edgeStyles: new Map(),
+    });
+    producer.updateLayout(tree.getRoot());
+    // We only need the final state of the initial layout
+    const steps = producer.getSteps();
+    return steps[steps.length - 1];
 };
 
 
@@ -148,24 +142,24 @@ export function useBstVisualizer() {
       }
     }
   }, [isAnimating, toast, isAutoPlaying, applyToast]);
+
+  const runAlgorithm = (algorithm: (producer: SnapshotProducer) => void) => {
+    const producer = new SnapshotProducer(baseLayout);
+    algorithm(producer);
+    startAnimation(producer.getSteps());
+  };
   
   const addNode = useCallback((value: number) => {
-    const events = tree.insert(value);
-    const steps = generateAnimationSteps(events, baseLayout);
-    startAnimation(steps);
-  }, [tree, startAnimation, baseLayout]);
+    runAlgorithm((producer) => tree.insert(value, producer));
+  }, [tree, baseLayout, startAnimation]);
 
   const removeNode = useCallback((value: number) => {
-    const events = tree.delete(value);
-    const steps = generateAnimationSteps(events, baseLayout);
-    startAnimation(steps);
-  }, [tree, startAnimation, baseLayout]);
+    runAlgorithm((producer) => tree.delete(value, producer));
+  }, [tree, baseLayout, startAnimation]);
 
   const searchNode = useCallback((value: number) => {
-    const events = tree.search(value);
-    const steps = generateAnimationSteps(events, baseLayout);
-    startAnimation(steps);
-  }, [tree, startAnimation, baseLayout]);
+    runAlgorithm((producer) => tree.search(value, producer));
+  }, [tree, baseLayout, startAnimation]);
 
   const canStepForward = currentStep < animationSteps.length - 1;
   const canStepBack = currentStep > 0;

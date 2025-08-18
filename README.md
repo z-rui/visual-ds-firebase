@@ -21,11 +21,12 @@ The application is built on a clean, three-layer architecture that separates the
 
 1.  **The Data Structure Layer (The "What")**
     *   **Location**: `src/lib/ds/`
-    *   **Role**: Contains the pure data structure class (e.g., `BinarySearchTree`). It is responsible for managing the data, enforcing algorithmic rules, and has **no knowledge** of anything visual. Operations are immutable, returning a new instance of the tree after each change.
+    *   **Role**: Contains the pure data structure class (e.g., `BinarySearchTree`). It is responsible for managing the data and enforcing algorithmic rules. During an operation (e.g., `insert`), it calls methods on an `AnimationProducer` instance to describe the steps of the algorithm.
+    *   **Key Characteristic**: This layer has **no knowledge** of anything visual. It only knows about a semantic interface (`AnimationProducer`) which it uses to announce its actions.
 
 2.  **The Animation Producer Layer (The "How")**
-    *   **Location**: `src/lib/animation/snapshot-generator.ts`
-    *   **Role**: Acts as a translator between the abstract data structure and its visual representation. It calculates the layout (x, y coordinates) and generates a step-by-step sequence of "snapshots" (`AnimationStep` objects) that describe how the visualization should look at each moment in time.
+    *   **Location**: `src/lib/animation/snapshot-producer.ts`
+    *   **Role**: Implements the `AnimationProducer` interface. An instance of the producer is passed into the data structure algorithms. As the algorithm calls its methods (`visitNode`, `updateLayout`, etc.), the producer generates and accumulates a step-by-step sequence of "snapshots" (`AnimationStep` objects) that describe how the visualization should look at each moment.
 
 3.  **The UI & State Management Layer (The "Display")**
     *   **Location**: `src/components/visual-ds/`, `src/hooks/`

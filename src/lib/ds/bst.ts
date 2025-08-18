@@ -1,5 +1,5 @@
 
-import type { AnimationEvent } from '@/types/animation';
+import type { AnimationProducer } from '@/types/animation-producer';
 
 // --- V2 Data Structure Implementation ---
 
@@ -25,20 +25,9 @@ export class BinarySearchTree {
     this.root = null;
     this.nodeIdCounter = 0;
     initialData.forEach(value => {
-        this.insert(value)
+        // Initial build doesn't need animation
+        this.insert(value, null);
     });
-  }
-
-  /**
-   * Provides a deep clone of the current tree's root.
-   * This is used for creating snapshots for keyframes.
-   */
-  private cloneTree(node: BinaryTreeNode | null): BinaryTreeNode | null {
-    if (!node) return null;
-    const newNode = new BinaryTreeNode(node.value, node.id);
-    newNode.left = this.cloneTree(node.left);
-    newNode.right = this.cloneTree(node.right);
-    return newNode;
   }
 
   public getRoot(): BinaryTreeNode | null {
@@ -49,32 +38,28 @@ export class BinarySearchTree {
     return `node-${this.nodeIdCounter++}`;
   }
   
-  public search(value: number): AnimationEvent[] {
-    const events: AnimationEvent[] = [];
+  public search(value: number, producer: AnimationProducer | null): void {
     let current = this.root;
     while (current) {
-      events.push({ type: 'VISIT_NODE', nodeId: current.id, value: current.value });
+      producer?.visitNode(current.id, current.value);
       if (value === current.value) {
-        events.push({ type: 'HIGHLIGHT_NODE', nodeId: current.id, reason: 'found' });
-        events.push({ type: 'END_OPERATION', toast: { title: 'Found', description: `Node with value ${value} found.` } });
-        return events;
+        producer?.highlightNode(current.id, 'found');
+        producer?.endOperation({ title: 'Found', description: `Node with value ${value} found.` });
+        return;
       }
       current = value < current.value ? current.left : current.right;
     }
-    events.push({ type: 'END_OPERATION', toast: { title: 'Not Found', description: `Node with value ${value} not found.`, variant: 'destructive' } });
-    return events;
+    producer?.endOperation({ title: 'Not Found', description: `Node with value ${value} not found.`, variant: 'destructive' });
   }
 
-  public insert(value: number): AnimationEvent[] {
-    const events: AnimationEvent[] = [];
-
+  public insert(value: number, producer: AnimationProducer | null): void {
     // Check for duplicates first
     let check = this.root;
     while(check) {
       if (value === check.value) {
-        events.push({ type: 'VISIT_NODE', nodeId: check.id, value: check.value });
-        events.push({ type: 'END_OPERATION', toast: { title: 'Duplicate', description: `Node with value ${value} already exists.`, variant: 'destructive' } });
-        return events;
+        producer?.visitNode(check.id, check.value);
+        producer?.endOperation({ title: 'Duplicate', description: `Node with value ${value} already exists.`, variant: 'destructive' });
+        return;
       }
       check = value < check.value ? check.left : check.right;
     }
@@ -82,19 +67,15 @@ export class BinarySearchTree {
     if (!this.root) {
       const newNodeId = this.getNextId();
       this.root = new BinaryTreeNode(value, newNodeId);
-      events.push({
-        type: 'UPDATE_LAYOUT',
-        tree: this.cloneTree(this.root)!,
-        description: 'Initial layout with new root node.',
-      });
-      events.push({ type: 'END_OPERATION' });
-      return events;
+      producer?.updateLayout(this.root);
+      producer?.endOperation();
+      return;
     }
 
     let current = this.root;
     
     while (current) {
-      events.push({ type: 'VISIT_NODE', nodeId: current.id, value: current.value });
+      producer?.visitNode(current.id, current.value);
       if (value < current.value) {
         if (!current.left) {
             current.left = new BinaryTreeNode(value, this.getNextId());
@@ -110,36 +91,30 @@ export class BinarySearchTree {
       }
     }
     
-    events.push({
-      type: 'UPDATE_LAYOUT',
-      tree: this.cloneTree(this.root)!,
-      description: 'Tree layout updated to accommodate new node.',
-    });
-    events.push({ type: 'END_OPERATION' });
-    
-    return events;
+    producer?.updateLayout(this.root);
+    producer?.endOperation();
   }
 
-  public delete(value: number): AnimationEvent[] {
-    const events: AnimationEvent[] = [];
+  public delete(value: number, producer: AnimationProducer | null): void {
+    let nodeFound = false;
     
     const deleteRec = (node: BinaryTreeNode | null, val: number, parent: BinaryTreeNode | null): BinaryTreeNode | null => {
         if (!node) {
-            events.push({ type: 'END_OPERATION', toast: { title: 'Not Found', description: `Node with value ${val} not found.`, variant: 'destructive' } });
+            if (!nodeFound) {
+                producer?.endOperation({ title: 'Not Found', description: `Node with value ${val} not found.`, variant: 'destructive' });
+            }
             return null;
         }
         
-        events.push({ type: 'VISIT_NODE', nodeId: node.id, value: node.value });
+        producer?.visitNode(node.id, node.value);
 
         if (val < node.value) {
             node.left = deleteRec(node.left, val, node);
         } else if (val > node.value) {
             node.right = deleteRec(node.right, val, node);
         } else {
-            // This is the node to be deleted
-            if (events.every(e => e.type !== 'HIGHLIGHT_NODE')) {
-                events.push({ type: 'HIGHLIGHT_NODE', nodeId: node.id, reason: 'deletion' });
-            }
+            nodeFound = true;
+            producer?.highlightNode(node.id, 'deletion');
 
             // Case 1 & 2: Leaf node or one child
             if (!node.left || !node.right) {
@@ -149,29 +124,29 @@ export class BinarySearchTree {
                 if (child) edgesToHide.push(`${node.id}-${child.id}`);
                 
                 if (edgesToHide.length > 0) {
-                    events.push({ type: 'HIDE_EDGE', edgeIds: edgesToHide });
+                    producer?.hideEdge(edgesToHide);
                 }
-                events.push({ type: 'HIDE_NODE', nodeId: node.id });
+                producer?.hideNode(node.id);
                 return child;
             }
             
             // Case 3: Two children
             let successorParent = node;
             let successor = node.right;
-            events.push({ type: 'VISIT_NODE', nodeId: successor.id, value: successor.value });
+            producer?.visitNode(successor.id, successor.value);
 
             while (successor.left) {
                 successorParent = successor;
                 successor = successor.left;
-                events.push({ type: 'VISIT_NODE', nodeId: successor.id, value: successor.value });
+                producer?.visitNode(successor.id, successor.value);
             }
-            events.push({ type: 'HIGHLIGHT_NODE', nodeId: successor.id, reason: 'successor' });
+            producer?.highlightNode(successor.id, 'successor');
             
             const successorEdgesToHide = [`${successorParent.id}-${successor.id}`];
             if (successor.right) {
                 successorEdgesToHide.push(`${successor.id}-${successor.right.id}`);
             }
-            events.push({ type: 'HIDE_EDGE', edgeIds: successorEdgesToHide });
+            producer?.hideEdge(successorEdgesToHide);
 
             const targetEdgesToHide: string[] = [];
             if (parent) {
@@ -179,9 +154,9 @@ export class BinarySearchTree {
             }
             targetEdgesToHide.push(`${node.id}-${node.left!.id}`);
             targetEdgesToHide.push(`${node.id}-${node.right!.id}`);
-            events.push({ type: 'HIDE_EDGE', edgeIds: targetEdgesToHide });
+            producer?.hideEdge(targetEdgesToHide);
             
-            events.push({ type: 'HIDE_NODE', nodeId: node.id });
+            producer?.hideNode(node.id);
             
             if (successorParent === node) {
                 successorParent.right = successor.right;
@@ -197,27 +172,11 @@ export class BinarySearchTree {
         return node;
     };
 
-    const newRoot = deleteRec(this.root, value, null);
+    this.root = deleteRec(this.root, value, null);
     
-    if (!events.some(e => e.type === 'END_OPERATION' && e.toast?.title === 'Not Found')) {
-        this.root = newRoot;
-        if (this.root) {
-            events.push({
-                type: 'UPDATE_LAYOUT',
-                tree: this.cloneTree(this.root)!,
-                description: 'Tree layout updated after deletion.'
-            });
-        } else {
-            // Handle case where tree becomes empty
-            events.push({
-                type: 'UPDATE_LAYOUT',
-                tree: null, // Represent empty tree
-                description: 'Tree is now empty.'
-            });
-        }
-        events.push({ type: 'END_OPERATION' });
+    if (nodeFound) {
+        producer?.updateLayout(this.root);
+        producer?.endOperation();
     }
-
-    return events;
   }
 }
