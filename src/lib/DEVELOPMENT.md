@@ -1,96 +1,125 @@
-
 # Visual DS - Development & Implementation Details
 
 This document outlines the key architectural principles, implementation details, and specific visual requirements for the Visual DS application.
 
 ## Core Principle: Separation of Concerns
 
-The application is built upon a three-layer architecture that strictly separates the data structure logic, the animation generation logic, and the user interface rendering. This is achieved through an "Inversion of Control" (IoC) pattern.
+The application is built upon a three-layer architecture that strictly separates the data structure logic, the animation generation logic, and the user interface rendering. This is achieved through an "Inversion of Control" (IoC) pattern where the data structure is given an animation "producer" at construction time.
 
 ### 1. The Data Structure Layer (The "What")
 
--   **File:** `src/lib/ds/bst.ts`
--   **Role:** This layer contains the pure `BinarySearchTree` class.
+-   **File:** `src/lib/ds/binary-tree.ts`, `src/lib/ds/binary-search-tree.ts`
+-   **Role:** This layer contains the pure data structure classes. The `BinarySearchTree` inherits from a generic `BinaryTree` base class.
 -   **Responsibilities:**
     -   Managing the nodes and their values.
-    -   Enforcing the rules of a Binary Search Tree (e.g., insertion, deletion, search logic).
-    -   Maintaining the integrity of the tree.
+    -   Enforcing the rules of the specific data structure (e.g., BST insertion logic).
 -   **Key Characteristics:**
-    -   **Purity:** This class has **no knowledge** of anything visual. It does not know about coordinates (x, y), colors, highlights, or animations. It is a pure, reusable data structure implementation.
-    -   **Dependency Inversion:** During an operation, the data structure's methods (e.g., `insert(value, producer)`) accept an implementation of the `AnimationProducer` interface. The algorithm calls methods on this producer (`producer.visitNode(...)`) to describe its actions semantically. This makes the data structure testable and independent of any specific animation logic.
+    -   **Purity:** This layer has **no knowledge** of anything visual. It does not know about coordinates (x, y), colors, highlights, or animations. It is a pure, reusable data structure implementation.
+    -   **Dependency Inversion:** The `BinaryTree`'s constructor accepts an implementation of the `GraphEventSink` interface (our "producer"). During an operation (like `insert`), the algorithm calls methods on this producer (`this.ui.visit(...)`) to describe its actions semantically. This makes the data structure testable and independent of any specific animation logic.
 
 ### 2. The Animation Producer Layer (The "How")
 
--   **File:** `src/lib/animation/snapshot-producer.ts`
--   **Role:** This layer is the "director" of the animation. It implements the `AnimationProducer` interface.
+-   **File:** `src/lib/animation/graph.ts`
+-   **Role:** This layer is the "director" of the animation. It implements the `GraphEventSink` interface.
 -   **Responsibilities:**
-    -   **Layout Calculation:** It uses the `dagre` library to calculate the `x` and `y` coordinates for each node in the tree whenever its `updateLayout` method is called.
-    -   **Animation Step Generation:** As the data structure algorithm calls its methods, the `SnapshotProducer` instance generates and stores a detailed, step-by-step array of `AnimationStep` objects (a "storyboard"). It translates semantic calls (`visitNode`, `hideNode`, etc.) into visual changes (setting `visitorNodeId`, creating style maps, etc.).
+    -   **Layout Calculation:** The base `BinaryTree` class uses the `dagre` library to calculate the `x` and `y` coordinates for each node in the tree whenever its `updateLayout` method is called.
+    -   **Animation Step Generation:** As the data structure algorithm calls the producer's methods, the `GraphAnimationProducer` instance generates and stores a detailed, step-by-step array of `GraphScene` objects (a "storyboard"). It translates semantic calls (`visit`, `highlightNode`, etc.) into visual changes (setting `visitorNodeId`, creating style maps, etc.).
 -   **Key Characteristics:**
     -   This layer is the bridge between the data and the UI. It encapsulates all the complex logic required to make an algorithm visually understandable. It is responsible for crafting the precise sequence of visual states that create a smooth and intuitive animation.
 
 ### 3. The UI & State Management Layer (The "Display")
 
 -   **Files:**
-    -   `src/hooks/use-bst-visualizer.ts` (The Controller)
-    -   `src/components/visual-ds/binary-search-tree-visualizer.tsx` (The Renderer)
+    -   `src/hooks/use-binary-search-tree-visualizer.ts` (The Controller)
+    -   `src/components/visual-ds/graph-renderer.tsx` (The Renderer)
     -   `src/components/visual-ds/controls.tsx` (The Controls)
 -   **Role:** This layer is responsible for everything the user sees and interacts with.
 -   **Responsibilities:**
-    -   **`useBstVisualizer` (Controller):**
-        -   Manages an instance of the `BinarySearchTree`.
-        -   Orchestrates the workflow: on a user action, it creates an instance of the `SnapshotProducer`, passes it into the data structure method (e.g., `tree.insert(10, producer)`), and then retrieves the final `AnimationStep[]` storyboard from the producer.
+    -   **`useBinarySearchTreeVisualizer` (Controller):**
+        -   Manages an instance of the `GraphAnimationProducer` and the `BinarySearchTree`, passing the producer to the tree's constructor.
+        -   Orchestrates the workflow: on a user action, it calls the appropriate data structure method (e.g., `tree.insert(10)`), and then retrieves the final `GraphScene[]` storyboard from the producer.
         -   It manages the playback of that storyboard (play, pause, step, speed).
-    -   **`BinarySearchTreeVisualizer` (Renderer):**
+    -   **`GraphRenderer` (Renderer):**
         -   A **pure SVG component**. All elements—nodes (as `<g>` groups containing a `<circle>` and `<text>`), edges (as `<line>`s), and highlights—are rendered within a single `<motion.svg>` canvas.
         -   This unified rendering context eliminates synchronization issues between different rendering technologies (like HTML and SVG).
-        -   It uses `framer-motion` to render the visual elements and animate them between states. It does not contain complex layout logic; it only renders what it's told based on the `AnimationStep` it receives.
+        -   It uses `framer-motion` to render the visual elements and animate them between states. It does not contain complex layout logic; it only renders what it's told based on the `GraphScene` it receives.
         -   All panning and zooming is handled by smoothly animating the SVG's `viewBox` attribute, which guarantees that all child elements transform as a single, cohesive unit.
     -   **`Controls` (Controls):**
         -   Provides the UI for the user to trigger actions and control the animation playback.
 
-## Animation Philosophy & Rules
+## Visual Requirements and Animation Sequences
 
-The animation system is designed to be declarative and robust, ensuring a clear and intuitive user experience.
+To provide a clear and intuitive visualization, the animation system must adhere to the following sequence for each operation.
 
--   **Declarative Snapshots:** The animation is not programmatic in the sense of `node.move(x, y)`. Instead, the `SnapshotProducer` generates a series of complete visual "snapshots" (`AnimationStep` objects). Each snapshot is a complete description of the visual state at one moment.
--   **Smooth Transitions by Framer Motion:** The `useBstVisualizer` hook feeds these snapshots one by one to the React components. `framer-motion`, using the `layoutId` prop for nodes and by animating SVG attributes, handles the actual visual animation, smoothly transitioning elements from one snapshot's state to the next.
--   **Consistent Timing:** Auto-play is driven by a single, steady `setInterval` in the `useBstVisualizer` hook. The perceived speed is controlled by changing the interval's delay, which simplifies the animation logic significantly.
+### `search(value)`
 
-### Visual & Behavioral Requirements
+1.  **Traversal:**
+    -   For each node visited, the "visitor" highlight (a dashed circle) must move to that node.
+    -   The `action` in the debug view should display `{ "type": "VISIT", "value": <node_value> }`.
+2.  **Found:**
+    -   If the node is found, its border must change to the accent color and thicken to indicate a highlight.
+    -   The `action` should be `{ "type": "HIGHLIGHT_NODE", "reason": "found" }`.
+    -   A success toast should appear.
+3.  **Not Found:**
+    -   If the search completes without finding the node, the visitor highlight disappears.
+    -   A "destructive" toast should appear indicating the node was not found.
 
-#### 1. Layout Rules
+### `insert(value)`
 
--   **Single-Child Node Distinction:** The visual layout must correctly differentiate between a node that has only a left child and a node that has only a right child. The layout algorithm reserves space for a "missing" child to ensure the single existing child is positioned correctly on its respective side. This is implemented using non-rendered "dummy nodes" during the `dagre` layout calculation.
+1.  **Search Phase:**
+    -   The animation follows the same traversal steps as the `search` operation.
+2.  **Insertion:**
+    -   The visitor highlight disappears.
+    -   A new node is created (it can start at the position of its parent).
+    -   The layout is recalculated.
+    -   The `action` is `{ "type": "UPDATE_LAYOUT_NODES" }`. All nodes (including the new one) animate to their new positions.
+    -   The `action` becomes `{ "type": "UPDATE_LAYOUT_EDGES" }`. The new edge connecting the parent and child fades in.
 
-#### 2. General Animation Rules
+### `delete(value)`
 
--   **The "No-Jump" Rule for Edges:** During any animation where nodes are moving, the edges connected to those nodes must move and stretch smoothly along with them. Edge endpoints must remain perfectly snapped to the center of their respective nodes throughout the entire transition.
--   **Deletion Highlight:** Nodes marked for deletion must be highlighted with a visually distinct, "destructive" color (e.g., a red border) to differentiate them from standard highlights.
+1.  **Search Phase:**
+    -   Follows the same traversal steps as the `search` operation.
+2.  **Deletion Highlight:**
+    -   When the target node is found, its border must change to the "destructive" color and thicken.
+    -   `action`: `{ "type": "HIGHLIGHT_NODE", "reason": "deletion" }`.
+3.  **Handling Successors (if applicable):**
+    -   If the node has two children, the visitor highlight moves to find the in-order successor (the leftmost node of the right subtree).
+    -   The successor's border is highlighted with the accent color.
+    -   `action`: `{ "type": "HIGHLIGHT_NODE", "reason": "successor" }`.
+4.  **Re-linking and Removal:**
+    -   The value of the node-to-be-deleted is replaced with the successor's value.
+    -   The successor node is now the one to be removed. All edges connected to the node being physically removed are hidden.
+    -   `action`: `{ "type": "HIDE_EDGE", "edgeIds": [...] }`.
+    -   The layout is recalculated without the removed node.
+    -   `action`: `{ "type": "UPDATE_LAYOUT_NODES" }`. All nodes animate to their final positions.
+    -   `action`: `{ "type": "UPDATE_LAYOUT_EDGES" }`. All edges animate to their final positions.
 
-#### 3. Insertion Animation Sequence
-1.  **Search:** The `insert` method calls `producer.visitNode()` repeatedly, causing a "visitor" highlight to traverse the tree to the correct insertion point.
-2.  **Update Layout:** The method calls `producer.updateLayout()`. The `SnapshotProducer` generates the necessary steps to animate the tree into its new, final structure. During this animation:
-    *   The new node fades into view at its final position.
-    *   The new edge connecting to the parent fades into view.
-    *   All other affected nodes and edges slide smoothly to their final positions.
+## Testing Strategy
 
-#### 4. Deletion Animation Sequence (Leaf & Single-Child Cases)
-1.  **Search:** The `delete` method calls `producer.visitNode()` to find the target node.
-2.  **Highlight for Deletion:** `producer.highlightNode()` is called with a 'deletion' reason.
-3.  **Unlink and Hide:** The producer is called to hide the edges and the node, making them fade out simultaneously.
-4.  **Update Layout:** `producer.updateLayout()` is called. The tree structure animates smoothly to its final layout, with a new edge connecting the child to the target node's parent fading in if necessary.
+To ensure code quality and prevent regressions, the project should adopt a comprehensive testing strategy. The recommended tools are **Vitest** for the test runner and **React Testing Library** for component testing.
 
-#### 5. Deletion Animation Sequence (Two-Child Case)
-This sequence applies when deleting a node with two children, using its in-order successor.
+The testing approach will mirror the application's architecture by testing each layer in isolation:
 
-1.  **Search:** A "visitor" highlight traverses the tree to find the target node.
-2.  **Highlight for Deletion:** The target node is highlighted with the destructive (red) color.
-3.  **Find Successor:** The visitor highlight traverses from the target's right child to find the in-order successor. The successor is then highlighted.
-4.  **Unlink Successor:** The producer is called to hide the edges connecting the successor to its parent and its own right child (if any).
-5.  **Unlink Target:** The producer is called to hide the edges connecting the original target node to its parent and its two children.
-6.  **Fade Out Node:** The producer is called to hide the original target node, making it fade out.
-7.  **Update Layout:** `producer.updateLayout()` is called. The entire tree animates into its new, final structure. During this animation:
-    * The successor node animates smoothly from its original position to the position of the deleted node.
-    * New edges fade into view, connecting the successor to the target's original children and the target's original parent.
-    * The successor's original right child (if it existed) animates to its new position, connected to the successor's original parent.
+1.  **Data Structure Unit Tests (Highest Priority):**
+    *   **Goal:** Verify the correctness of the algorithms within the `BinarySearchTree` class.
+    *   **Method:** Create a mock implementation of the `GraphEventSink` interface. This mock will not produce animations but will simply record the sequence of calls made to it (`visit`, `highlightNode`, etc.).
+    *   **Example:** A test for `tree.insert(10)` would assert that the `visit` method was called on the correct nodes in the correct order and that `updateLayout` was called at the end. This allows for testing the core logic completely decoupled from the UI.
+
+2.  **Animation Producer Unit Tests:**
+    *   **Goal:** Verify that the `GraphAnimationProducer` correctly translates semantic events into visual `GraphScene` snapshots.
+    *   **Method:** Call the producer's methods directly (e.g., `producer.visit(...)`) and then inspect the resulting array of `GraphScene` objects to ensure the `visitorNodeId`, `nodeStyles`, etc., are set as expected.
+
+3.  **UI Component Tests:**
+    *   **Goal:** Verify that React components render correctly and respond to user interaction.
+    *   **Method:** Use React Testing Library to render components like `Controls` in a simulated environment. Tests will simulate user actions (e.g., clicking the "Add Node" button) and assert that the correct callback functions are invoked with the correct parameters.
+
+## Extensibility and Future Data Structures
+
+The architecture is explicitly designed to be extended with new data structures.
+
+-   **Inheritance:** New tree-based structures (e.g., AVL Trees, Heaps) can inherit from the `BinaryTree` class. This provides them with the complex `getLayout()` logic for free, making them instantly visualizable. The developer can then focus on implementing the core algorithms (e.g., rotations for an AVL tree).
+
+-   **Dynamic UI:** The plan for supporting multiple data structures involves:
+    1.  **UI Switcher:** A `Select` dropdown will be added to the main page (`page.tsx`) to allow users to choose the active data structure.
+    2.  **Conditional Hooks:** The main page will use the selection to conditionally call the correct visualizer hook (e.g., `useBstVisualizer`, `useAvlVisualizer`, etc.).
+    3.  **Specific Controls:** The monolithic `Controls.tsx` will be broken into smaller, data-structure-specific components (e.g., `BstControls.tsx`, `HeapControls.tsx`) that contain the relevant actions for that structure. The main page will render the correct controls component based on the user's selection, ensuring the available actions always match the active data structure.

@@ -4,30 +4,25 @@ This document captures key insights, known issues, and potential improvements fo
 
 ## Lessons Learned
 
-1.  **Separation of Concerns is Critical**: The three-layer architecture (Data, Animation Producer, Renderer) is the single most important concept. The recent refactoring to a Producer/Builder pattern solidifies this. The `BinarySearchTree` depends only on an `AnimationProducer` interface, making it pure and testable. The `SnapshotProducer` class encapsulates all the complex translation logic. This is essential for managing complexity.
+1.  **Separation of Concerns is Critical**: The three-layer architecture (Data, Animation Producer, Renderer) is the single most important concept. The data structure (`BinarySearchTree`) is initialized with a dependency that implements the `GraphEventSink` interface (the "producer"). This makes the data structure logic pure and testable, while the `GraphAnimationProducer` class encapsulates all the complex translation logic from semantic events to a visual storyboard.
 
-2.  **Animation is a Series of Snapshots**: Thinking of an animation not as a series of imperative commands (`move`, `fade`), but as an array of declarative "snapshots" (`AnimationStep` objects) is a core success of this project. The `useBstVisualizer` hook is the "player" that simply moves through these snapshots, and `framer-motion` handles the "tweening" between them.
+2.  **Stateful Producer at Construction:** Providing the animation producer during the data structure's construction (`new BinarySearchTree(producer)`) creates a much cleaner public API (`tree.insert(10)`) than passing it into every method call. It correctly models the idea that the tree object is inherently "visualizable" for its entire lifetime.
 
-3.  **Framer Motion & `layoutId`**: `framer-motion` is powerful for animating between states, but it depends heavily on the `layoutId` prop remaining consistent for a given logical element across renders. This is key to smooth transitions.
+3.  **Animation is a Series of Snapshots**: Thinking of an animation not as a series of imperative commands (`move`, `fade`), but as an array of declarative "snapshots" (`GraphScene` objects) is a core success of this project. The `useBinarySearchTreeVisualizer` hook is the "player" that simply moves through these snapshots, and `framer-motion` handles the "tweening" between them.
 
-4.  **A Stable `viewBox` is Essential for SVG Animation**: When animating elements within an SVG, especially during pan and zoom operations, the `viewBox` attribute must provide a stable coordinate system. The initial attempt to have the `viewBox` tightly hug the content on every single frame failed because it caused the entire coordinate system to shift, resulting in nodes "jumping" to incorrect positions. The final, successful approach memoizes the `viewBox` calculation based on the node layout and the container size. This ensures the coordinate system remains static throughout an animation sequence, preventing jitter while still allowing for smooth, responsive scaling.
-
-## Solved Challenges
-
-### The SVG vs. HTML Rendering Challenge (SOLVED)
-
-The most significant architectural hurdle was the initial hybrid rendering approach, which used HTML `<div>`s for nodes and an SVG `<canvas>` for edges. This created two separate coordinate systems that were difficult to synchronize, leading to animation glitches.
-
--   **The Solution**: The final architecture renders **all** elements within a single, unified `<svg>` canvas.
-    -   Nodes are `<g>` groups containing a `<circle>` and `<text>`.
-    -   Edges are `<line>` elements.
-    -   Panning and zooming are handled by animating the `viewBox` attribute of the root SVG element.
--   **The Result**: This pure SVG approach is more robust, maintainable, and performant. It completely eliminates the synchronization problem by leveraging the browser's native SVG rendering engine as a single source of truth for positioning.
+4.  **A Stable `viewBox` is Essential for SVG Animation**: When animating elements within an SVG, the `viewBox` attribute must provide a stable coordinate system. The successful approach memoizes the `viewBox` calculation based on the node layout and the container size. This ensures the coordinate system remains static throughout an animation sequence, preventing jitter while still allowing for smooth, responsive scaling.
 
 ## Future Improvement Suggestions
 
-1.  **Generic Visualizer Framework**: The `SnapshotProducer` is specific to binary search trees. A future goal could be to abstract this further. One could define a generic `Visualizer` interface with methods like `getLayout()` and `generateTransitionSteps()`, and then implement this interface for different data structures (e.g., `GraphVisualizer`, `LinkedListVisualizer`). This would require a more abstract `AnimationStep` definition.
+1.  **Add Unit Tests**: The project currently lacks automated tests. The top priority for improving code quality is to add a testing framework. The recommended approach is to use **Vitest** and **React Testing Library** to test each layer of the application in isolation (Data Structure, Animation Producer, and UI Components).
 
-2.  **Add More Data Structures**: The ultimate goal is to support more than just BSTs. Adding a Linked List or a simple Graph would be the next logical step and would test the generic nature of the rendering layer.
+2.  **Add `parent` Pointer to `BinaryTreeNode`**: The current tree implementation uses manual "chasing" pointers to track parent nodes within algorithms like `delete`. This adds complexity and special cases for the root. A highly recommended next step is to add a `parent: BinaryTreeNode | null` property to the `BinaryTreeNode` class. This would dramatically simplify the deletion and rotation logic, making the code more intuitive and robust. The architectural separation ensures this change would be contained entirely within the data structure layer.
 
-3.  **AI-Powered Explanations**: To enhance the educational value, a Genkit flow could be created to translate the `action` object of an `AnimationStep` into a human-readable explanation (e.g., `{type: "visit", value: 25}` becomes "Searching for 25. Current node value is greater, so moving left.").
+3.  **Implement More Data Structures**: The architecture is now primed for extension. Adding an `AVLTree` (by extending `BinarySearchTree` and adding rotation logic) or a `Heap` (by extending `BinaryTree`) are excellent next steps.
+
+4.  **Implement Multi-DS Switching UI**: The plan for supporting multiple data structures should be implemented. This involves:
+    *   A `Select` dropdown in `page.tsx`.
+    *   Conditionally rendering the correct visualizer hook and controls component based on the selection.
+    *   Breaking the current `Controls` component into data-structure-specific components (e.g., `BstControls`, `HeapControls`).
+
+5.  **AI-Powered Explanations**: To enhance the educational value, a Genkit flow could be created to translate the `action` object of a `GraphScene` into a human-readable explanation (e.g., `{type: "visit", value: 25}` becomes "Searching for 25. Current node value is greater, so moving left.").
