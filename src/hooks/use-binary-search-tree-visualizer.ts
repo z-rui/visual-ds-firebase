@@ -2,11 +2,10 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { BinarySearchTree, BinaryTreeNode } from '@/lib/ds/bst';
-import type { AnimationStep, NodeStyle, EdgeStyle } from '@/types/bst';
 import { useToast } from "@/hooks/use-toast";
-import { SnapshotProducer } from '@/lib/animation/snapshot-producer';
-import dagre from 'dagre';
+import { BinarySearchTree } from '@/lib/ds/binary-search-tree';
+import { GraphScene } from '@/types/graph-scene';
+import { GraphAnimationProducer } from '@/lib/animation/graph';
 
 export interface AnimationControls {
   currentStep: number;
@@ -30,39 +29,31 @@ const ANIMATION_INTERVAL = 750; // Base interval for auto-play
 
 const initialTreeData = [50, 25, 75, 12, 37, 62, 87, 6, 18, 31, 43, 56, 68, 81, 93];
 
-// Helper to calculate the initial layout.
-const getInitialLayout = (tree: BinarySearchTree): AnimationStep => {
-    const producer = new SnapshotProducer({
-        nodes: [],
-        edges: [],
-        visitorNodeId: null,
-        nodeStyles: new Map(),
-        edgeStyles: new Map(),
-    });
-    producer.updateLayout(tree.getRoot());
-    // We only need the final state of the initial layout
-    const steps = producer.getSteps();
-    return steps[steps.length - 1];
-};
-
-
-export function useBstVisualizer() {
+export function useBinarySearchTreeVisualizer() {
   const { toast } = useToast();
-  
-  const [tree, setTree] = useState(() => new BinarySearchTree(initialTreeData));
+
+  const [animationProducer,] = useState(() => new GraphAnimationProducer);
+  const [tree,] = useState<BinarySearchTree>(() => {
+    const tree = new BinarySearchTree(animationProducer);
+    initialTreeData.forEach(value => { tree.insert(value) });
+    return tree;
+  });
 
   // Base visual state, representing the current stable layout
-  const [baseLayout, setBaseLayout] = useState<AnimationStep>(() => getInitialLayout(tree));
+  const [baseLayout, setBaseLayout] = useState<GraphScene>(() => {
+    const [nodes, edges] = tree.getLayout();
+    return { nodes, edges, visitorNodeId: null, nodeStyles: new Map(), edgeStyles: new Map() };
+  });
 
   const [isAnimating, setIsAnimating] = useState(false);
-  const [animationSteps, setAnimationSteps] = useState<AnimationStep[]>([]);
+  const [animationSteps, setAnimationSteps] = useState<GraphScene[]>([]);
   const [currentStep, setCurrentStep] = useState(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
   const [animationSpeed, setAnimationSpeed] = useState(3);
 
   const animationIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  
+
   const currentAnimationStep = useMemo(() => {
     return animationSteps[currentStep] || null;
   }, [animationSteps, currentStep]);
@@ -79,12 +70,12 @@ export function useBstVisualizer() {
   } = displayedStep;
 
 
-  const applyToast = useCallback((step: AnimationStep | undefined) => {
+  const applyToast = useCallback((step?: GraphScene) => {
     if (step?.toast) {
       toast(step.toast);
     }
   }, [toast]);
-    
+
   useEffect(() => {
     if (animationIntervalRef.current) {
       clearInterval(animationIntervalRef.current);
@@ -101,7 +92,7 @@ export function useBstVisualizer() {
       }
     };
   }, [isPlaying, currentStep, animationSteps, animationSpeed]);
-  
+
   useEffect(() => {
     if (!isAnimating || !animationSteps[currentStep]) return;
 
@@ -121,16 +112,16 @@ export function useBstVisualizer() {
       setIsPlaying(false);
     }
   }, [animationSteps]);
-  
-  const startAnimation = useCallback((steps: AnimationStep[]) => {
+
+  const startAnimation = useCallback((steps: GraphScene[]) => {
     if (isAnimating) {
-        toast({ title: "Animation in progress", description: "Please wait for the current animation to finish.", variant: "destructive" });
-        return;
+      toast({ title: "Animation in progress", description: "Please wait for the current animation to finish.", variant: "destructive" });
+      return;
     };
     if (animationIntervalRef.current) clearInterval(animationIntervalRef.current);
-    
+
     setAnimationSteps(steps);
-    
+
     if (steps.length > 0) {
       setIsAnimating(true);
       setCurrentStep(0);
@@ -143,23 +134,24 @@ export function useBstVisualizer() {
     }
   }, [isAnimating, toast, isAutoPlaying, applyToast]);
 
-  const runAlgorithm = (algorithm: (producer: SnapshotProducer) => void) => {
-    const producer = new SnapshotProducer(baseLayout);
-    algorithm(producer);
-    startAnimation(producer.getSteps());
+  const runAlgorithm = (algorithm: () => void) => {
+    animationProducer.start(baseLayout);
+    algorithm();
+    const story = animationProducer.finish();
+    startAnimation(story);
   };
-  
+
   const addNode = useCallback((value: number) => {
-    runAlgorithm((producer) => tree.insert(value, producer));
-  }, [tree, baseLayout, startAnimation]);
+    runAlgorithm(() => tree.insert(value));
+  }, [baseLayout, startAnimation]);
 
   const removeNode = useCallback((value: number) => {
-    runAlgorithm((producer) => tree.delete(value, producer));
-  }, [tree, baseLayout, startAnimation]);
+    runAlgorithm(() => tree.delete(value));
+  }, [baseLayout, startAnimation]);
 
   const searchNode = useCallback((value: number) => {
-    runAlgorithm((producer) => tree.search(value, producer));
-  }, [tree, baseLayout, startAnimation]);
+    runAlgorithm(() => tree.search(value));
+  }, [baseLayout, startAnimation]);
 
   const canStepForward = currentStep < animationSteps.length - 1;
   const canStepBack = currentStep > 0;
@@ -168,13 +160,13 @@ export function useBstVisualizer() {
     if (canStepForward) goToStep(currentStep + 1);
   };
   const stepBack = () => {
-      if (canStepBack) goToStep(currentStep - 1);
+    if (canStepBack) goToStep(currentStep - 1);
   };
   const rewind = () => {
-      goToStep(0);
+    goToStep(0);
   };
   const fastForward = () => {
-      goToStep(animationSteps.length - 1);
+    goToStep(animationSteps.length - 1);
   };
 
   const togglePlayPause = () => {
@@ -203,16 +195,16 @@ export function useBstVisualizer() {
     setAnimationSpeed,
   };
 
-  return { 
-    nodes, 
-    edges, 
-    visitorNodeId, 
+  return {
+    nodes,
+    edges,
+    visitorNodeId,
     nodeStyles,
     edgeStyles,
-    isAnimating, 
-    addNode, 
-    removeNode, 
-    searchNode, 
+    isAnimating,
+    addNode,
+    removeNode,
+    searchNode,
     animationControls,
     currentAnimationStep: displayedStep,
   };

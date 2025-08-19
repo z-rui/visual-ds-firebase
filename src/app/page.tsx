@@ -1,9 +1,9 @@
 
 "use client";
 
-import { BinarySearchTreeVisualizer } from "@/components/visual-ds/binary-search-tree-visualizer";
+import { GraphRenderer } from "@/components/visual-ds/graph-renderer";
 import { Controls } from "@/components/visual-ds/controls";
-import { useBstVisualizer } from "@/hooks/use-bst-visualizer";
+import { useBinarySearchTreeVisualizer } from "@/hooks/use-binary-search-tree-visualizer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Github, Moon, Sun, Laptop } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -23,7 +23,7 @@ export default function Home() {
     searchNode,
     animationControls,
     currentAnimationStep,
-  } = useBstVisualizer();
+  } = useBinarySearchTreeVisualizer();
   
   const { setTheme } = useTheme();
 
@@ -77,7 +77,7 @@ export default function Home() {
                 <CardTitle>Binary Search Tree</CardTitle>
               </CardHeader>
               <CardContent className="flex-grow">
-                <BinarySearchTreeVisualizer
+                <GraphRenderer
                   nodes={nodes}
                   edges={edges}
                   visitorNodeId={visitorNodeId}

@@ -1,4 +1,3 @@
-
 export type VisualNode = {
   id: string;
   value: number;
@@ -27,8 +26,7 @@ export type EdgeStyle = {
   invisible?: boolean;
 };
 
-// A complete snapshot of the visual state at a single point in time.
-export type AnimationStep = {
+export type GraphScene = {
   nodes: VisualNode[];
   edges: VisualEdge[];
   visitorNodeId: string | null;
@@ -37,3 +35,13 @@ export type AnimationStep = {
   toast?: ToastMessage;
   action?: Record<string, any>;
 };
+
+export interface GraphEventSink {
+  visit(nodeId: string, value: number): void;
+  unvisit(): void;
+  highlightNode(nodeId: string, reason: 'found' | 'successor' | 'deletion'): void;
+  hideNode(nodeId: string): void;
+  hideEdge(edgeIds: string[]): void;
+  updateLayout(nodes: VisualNode[], edges: VisualEdge[], unvisit?: boolean): void;
+  toast(toast: ToastMessage): void;
+}

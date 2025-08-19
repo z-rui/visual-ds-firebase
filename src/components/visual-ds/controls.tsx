@@ -8,8 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { AnimationControls } from '@/hooks/use-bst-visualizer';
-import type { AnimationStep } from '@/types/bst';
+import type { AnimationControls } from "@/hooks/use-binary-search-tree-visualizer";
+import type { GraphScene } from "@/types/graph-scene";
 import { Slider } from '@/components/ui/slider';
 import { FastForward, Pause, Play, Rewind, StepBack, StepForward } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -22,7 +22,7 @@ interface ControlsProps {
   onSearch: (value: number) => void;
   isAnimating: boolean;
   animationControls: AnimationControls;
-  currentAnimationStep: AnimationStep | null;
+  currentAnimationStep: GraphScene | null;
 }
 
 const formSchema = z.object({

@@ -3,7 +3,7 @@
 
 import React, { useMemo, useRef, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { VisualNode, VisualEdge, NodeStyle, EdgeStyle } from '@/types/bst';
+import type { VisualNode, VisualEdge, NodeStyle, EdgeStyle } from '@/types/graph-scene';
 
 const NODE_RADIUS = 24;
 const NODE_DIAMETER = NODE_RADIUS * 2;
@@ -80,7 +80,7 @@ const Edge = React.memo(({ from, to, edgeStyle }: { from: VisualNode; to: Visual
 });
 Edge.displayName = 'Edge';
 
-interface BinarySearchTreeVisualizerProps {
+interface GraphRendererProps {
   nodes: VisualNode[];
   edges: VisualEdge[];
   visitorNodeId: string | null;
@@ -88,13 +88,13 @@ interface BinarySearchTreeVisualizerProps {
   edgeStyles?: Map<string, EdgeStyle>;
 }
 
-export function BinarySearchTreeVisualizer({
+export function GraphRenderer({
   nodes,
   edges,
   visitorNodeId,
   nodeStyles = new Map(),
   edgeStyles = new Map(),
-}: BinarySearchTreeVisualizerProps) {
+}: GraphRendererProps) {
   const nodeMap = useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes]);
   const svgRef = useRef<SVGSVGElement>(null);
   const [svgSize, setSvgSize] = useState({ width: 0, height: 0 });
@@ -160,7 +160,7 @@ export function BinarySearchTreeVisualizer({
     <motion.svg
         ref={svgRef}
         className="h-full w-full min-h-[400px]"
-        aria-label="Binary Search Tree visualization"
+        aria-label="Graph visualization"
         animate={{ viewBox }}
         transition={{ duration: 0.5, ease: "easeInOut" }}
     >
