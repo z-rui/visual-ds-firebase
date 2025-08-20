@@ -60,7 +60,7 @@ export class SplayTree extends BinarySearchTree {
       return;
     }
   
-    let current = this.root;
+    let current: BinaryTreeNode | null = this.root;
     let parent: BinaryTreeNode | null = null;
     while (current) {
       parent = current;
