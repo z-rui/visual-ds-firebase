@@ -41,6 +41,7 @@ export class BinarySearchTree extends BinaryTree {
           current = current.right;
         } else {
           this.ui.toast({ title: 'Duplicate', description: `Node with value ${value} already exists.`, variant: 'destructive' });
+          break;
         }
       }
     }
