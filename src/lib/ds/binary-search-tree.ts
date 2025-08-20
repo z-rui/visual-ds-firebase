@@ -5,14 +5,12 @@ import { BinaryTree } from "./binary-tree";
 export class BinarySearchTree extends BinaryTree {
 
   protected findNode(value: number): BinaryTreeNode | null {
-    let parent: BinaryTreeNode | null = null;
     let current = this.root;
     while (current) {
       this.ui.visit(current.id, current.value);
       if (value === current.value) {
         return current;
       }
-      parent = current;
       current = value < current.value ? current.left : current.right;
     }
     return current;
