@@ -1,3 +1,4 @@
+
 import { BinaryTreeNode } from "@/types/binary-tree";
 import { BinaryTree } from "./binary-tree";
 
@@ -23,6 +24,7 @@ export class BinarySearchTree extends BinaryTree {
       this.ui.highlightNode(node.id, 'found');
       this.ui.toast({ title: 'Found', description: `Node with value ${value} found.` });
     } else {
+      this.ui.unvisit();
       this.ui.toast({ title: 'Not Found', description: `Node with value ${value} not found.`, variant: 'destructive' });
     }
   }

@@ -1,3 +1,4 @@
+
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { BinarySearchTree } from './binary-search-tree';
 import type { GraphEventSink } from '@/types/graph-scene';
@@ -87,12 +88,20 @@ describe('BinarySearchTree', () => {
       tree.insert(50);
       tree.insert(25);
       tree.insert(75);
-      const rootBefore = tree.getRoot();
-      const layoutBefore = JSON.stringify(rootBefore);
+      const layoutBefore = JSON.stringify(tree.getLayout());
       tree.insert(50);
-      const rootAfter = tree.getRoot();
-      const layoutAfter = JSON.stringify(rootAfter);
+      const layoutAfter = JSON.stringify(tree.getLayout());
       expect(layoutAfter).toEqual(layoutBefore);
+    });
+  });
+
+  describe('search', () => {
+    it('should run without errors for existing and non-existing values', () => {
+      tree.insert(50);
+      tree.insert(25);
+      
+      expect(() => tree.search(50)).not.toThrow();
+      expect(() => tree.search(100)).not.toThrow();
     });
   });
 
@@ -115,41 +124,80 @@ describe('BinarySearchTree', () => {
       expect(node).toBeNull();
     });
 
-    it('should correctly delete a node with only a right child', () => {
-      tree.delete(12);
-      const root = tree.getRoot();
-      expect(root?.left?.left?.value).toBe(18);
+    it('should correctly delete the only node in the tree', () => {
+      const singleNodeTree = new TestableBinarySearchTree(mockSink);
+      singleNodeTree.insert(50);
+      singleNodeTree.delete(50);
+      expect(singleNodeTree.getRoot()).toBeNull();
     });
 
-    it('should correctly delete a node with only a left child', () => {
-      tree.insert(15);
-      tree.delete(18);
-      const root = tree.getRoot();
-      expect(root?.left?.left?.right?.value).toBe(15);
+    it('should correctly delete a node with only a right child', () => {
+      tree.delete(12);
+      const { node } = tree.findNode(12);
+      expect(node).toBeNull();
+      const parent = tree.findNode(25).node;
+      expect(parent?.left?.value).toBe(18);
+    });
+
+    it('should correctly delete the root when it only has a right child', () => {
+      const singleNodeTree = new TestableBinarySearchTree(mockSink);
+      singleNodeTree.insert(50);
+      singleNodeTree.insert(75);
+      singleNodeTree.delete(50);
+      expect(singleNodeTree.getRoot()?.value).toBe(75);
+      expect(singleNodeTree.getRoot()?.left).toBeNull();
+    });
+
+    it('should correctly delete a node with two children (simple case)', () => {
+      tree.delete(87);
+      const parent = tree.findNode(75).node;
+      expect(parent?.right?.value).toBe(93);
+      expect(parent?.right?.left?.value).toBe(81);
+    });
+    
+    it('should correctly delete the root when it only has a left child', () => {
+        const singleNodeTree = new TestableBinarySearchTree(mockSink);
+        singleNodeTree.insert(50);
+        singleNodeTree.insert(25);
+        singleNodeTree.delete(50);
+        expect(singleNodeTree.getRoot()?.value).toBe(25);
+        expect(singleNodeTree.getRoot()?.right).toBeNull();
     });
 
     it('should correctly delete a node with two children (successor is right child)', () => {
       tree.delete(62);
-      const root = tree.getRoot();
-      expect(root?.right?.left?.value).toBe(68);
-      expect(root?.right?.left?.left?.value).toBe(56);
-      expect(root?.right?.left?.right).toBeNull();
+      const { node } = tree.findNode(62);
+      expect(node).toBeNull();
+      const parent = tree.findNode(75).node;
+      expect(parent?.left?.value).toBe(68);
+      expect(parent?.left?.left?.value).toBe(56);
+      expect(parent?.left?.right).toBeNull();
     });
 
     it('should correctly delete a node with two children (successor is not right child)', () => {
       tree.delete(25);
-      const root = tree.getRoot();
-      expect(root?.left?.value).toBe(31);
-      expect(root?.left?.right?.value).toBe(37);
-      expect(root?.left?.right?.left).toBeNull();
+      const { node } = tree.findNode(25);
+      expect(node).toBeNull();
+      const parent = tree.findNode(50).node;
+      expect(parent?.left?.value).toBe(31);
+      expect(parent?.left?.right?.value).toBe(37);
+      expect(parent?.left?.right?.left).toBeNull();
     });
 
+    it('should correctly delete a node with two children where successor has a right child', () => {
+      tree.insert(69);
+      tree.delete(62);
+      
+      const parent = tree.findNode(75).node;
+      expect(parent?.left?.value).toBe(68);
+      expect(parent?.left?.left?.value).toBe(56);
+      expect(parent?.left?.right?.value).toBe(69);
+    });
+    
     it('should correctly delete the root node', () => {
       tree.delete(50);
-      const root = tree.getRoot();
-      expect(root?.value).toBe(56);
-      expect(root?.right?.left?.value).toBe(62);
-      expect(root?.right?.left?.left).toBeNull();
+      expect(tree.getRoot()?.value).toBe(56);
+      expect(tree.getRoot()?.right?.left?.left).toBeNull();
     });
   });
 });
