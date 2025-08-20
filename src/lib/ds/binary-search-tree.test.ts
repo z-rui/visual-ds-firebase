@@ -8,7 +8,7 @@ import type { BinaryTreeNode } from '@/types/binary-tree';
 // We create a subclass specifically for the test environment
 // that exposes the protected method as a public one.
 class TestableBinarySearchTree extends BinarySearchTree {
-  public findNode(value: number): { node: BinaryTreeNode | null, parent: BinaryTreeNode | null } {
+  public findNode(value: number) {
     return super.findNode(value);
   }
 }
@@ -41,22 +41,22 @@ describe('BinarySearchTree', () => {
     });
 
     it('should find an existing node and its parent', () => {
-      const { node, parent } = tree.findNode(37);
+      const node = tree.findNode(37);
       expect(node).not.toBeNull();
       expect(node?.value).toBe(37);
-      expect(parent).not.toBeNull();
-      expect(parent?.value).toBe(25);
+      expect(node?.parent).not.toBeNull();
+      expect(node?.parent?.value).toBe(25);
     });
 
     it('should find the root node', () => {
-        const { node, parent } = tree.findNode(50);
+        const node = tree.findNode(50);
         expect(node).not.toBeNull();
         expect(node?.value).toBe(50);
-        expect(parent).toBeNull();
+        expect(node?.parent).toBeNull();
     });
 
     it('should return null when node is not found', () => {
-        const { node } = tree.findNode(100);
+        const node = tree.findNode(100);
         expect(node).toBeNull();
     });
   });
@@ -120,7 +120,7 @@ describe('BinarySearchTree', () => {
 
     it('should correctly delete a leaf node', () => {
       tree.delete(6);
-      const { node } = tree.findNode(6);
+      const node = tree.findNode(6);
       expect(node).toBeNull();
     });
 
@@ -133,9 +133,9 @@ describe('BinarySearchTree', () => {
 
     it('should correctly delete a node with only a right child', () => {
       tree.delete(12);
-      const { node } = tree.findNode(12);
+      const node = tree.findNode(12);
       expect(node).toBeNull();
-      const parent = tree.findNode(25).node;
+      const parent = tree.findNode(25);
       expect(parent?.left?.value).toBe(18);
     });
 
@@ -150,7 +150,7 @@ describe('BinarySearchTree', () => {
 
     it('should correctly delete a node with two children (simple case)', () => {
       tree.delete(87);
-      const parent = tree.findNode(75).node;
+      const parent = tree.findNode(75);
       expect(parent?.right?.value).toBe(93);
       expect(parent?.right?.left?.value).toBe(81);
     });
@@ -166,9 +166,9 @@ describe('BinarySearchTree', () => {
 
     it('should correctly delete a node with two children (successor is right child)', () => {
       tree.delete(62);
-      const { node } = tree.findNode(62);
+      const node = tree.findNode(62);
       expect(node).toBeNull();
-      const parent = tree.findNode(75).node;
+      const parent = tree.findNode(75);
       expect(parent?.left?.value).toBe(68);
       expect(parent?.left?.left?.value).toBe(56);
       expect(parent?.left?.right).toBeNull();
@@ -176,9 +176,9 @@ describe('BinarySearchTree', () => {
 
     it('should correctly delete a node with two children (successor is not right child)', () => {
       tree.delete(25);
-      const { node } = tree.findNode(25);
+      const node = tree.findNode(25);
       expect(node).toBeNull();
-      const parent = tree.findNode(50).node;
+      const parent = tree.findNode(50);
       expect(parent?.left?.value).toBe(31);
       expect(parent?.left?.right?.value).toBe(37);
       expect(parent?.left?.right?.left).toBeNull();
@@ -188,7 +188,7 @@ describe('BinarySearchTree', () => {
       tree.insert(69);
       tree.delete(62);
       
-      const parent = tree.findNode(75).node;
+      const parent = tree.findNode(75);
       expect(parent?.left?.value).toBe(68);
       expect(parent?.left?.left?.value).toBe(56);
       expect(parent?.left?.right?.value).toBe(69);

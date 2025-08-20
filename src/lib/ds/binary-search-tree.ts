@@ -4,22 +4,22 @@ import { BinaryTree } from "./binary-tree";
 
 export class BinarySearchTree extends BinaryTree {
 
-  protected findNode(value: number): { node: BinaryTreeNode | null, parent: BinaryTreeNode | null } {
+  protected findNode(value: number): BinaryTreeNode | null {
     let parent: BinaryTreeNode | null = null;
     let current = this.root;
     while (current) {
       this.ui.visit(current.id, current.value);
       if (value === current.value) {
-        return { node: current, parent };
+        return current;
       }
       parent = current;
       current = value < current.value ? current.left : current.right;
     }
-    return { node: null, parent: parent };
+    return current;
   }
 
   public search(value: number): void {
-    const { node } = this.findNode(value);
+    const node = this.findNode(value);
     if (node) {
       this.ui.highlightNode(node.id, 'found');
       this.ui.toast({ title: 'Found', description: `Node with value ${value} found.` });
@@ -58,7 +58,7 @@ export class BinarySearchTree extends BinaryTree {
   }
 
   public delete(value: number): void {
-    const { node: current, parent } = this.findNode(value);
+    const current = this.findNode(value);
     
     if (current == null) {
       this.ui.unvisit();
@@ -69,6 +69,7 @@ export class BinarySearchTree extends BinaryTree {
     this.ui.highlightNode(current.id, 'deletion');
     
     const edgesToHide: string[] = [];
+    const parent = current.parent;
     let dir: 'left' | 'right' | undefined;
     
     if (parent != null) {

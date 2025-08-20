@@ -89,23 +89,27 @@ export class BinaryTree {
   }
 
   protected link(node: BinaryTreeNode, parent: BinaryTreeNode, dir: 'left' | 'right'): void {
+    assert.strictEqual(node.parent, null);
     if (dir == 'left') {
-      assert(parent.left == null);
+      assert.strictEqual(parent.left, null);
       parent.left = node;
     } else {
-      assert(parent.right == null);
+      assert.strictEqual(parent.right, null);
       parent.right = node;
     }
+    node.parent = parent;
   }
 
   protected unlink(node: BinaryTreeNode, parent: BinaryTreeNode): string {
+    assert.strictEqual(node.parent, parent);
     if (parent.left == node) {
       parent.left = null;
     } else if (parent.right == node) {
       parent.right = null;
     } else {
-      throw "try to unlink nodes that aren't linked";
+      assert.fail("try to unlink nodes that aren't linked");
     }
+    node.parent = null;
     return `${parent.id}-${node.id}`;
   }
 }
