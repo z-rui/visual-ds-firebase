@@ -1,3 +1,4 @@
+
 import { BinaryTreeNode } from "@/types/binary-tree";
 import { GraphEventSink, VisualEdge, VisualNode } from "@/types/graph-scene";
 import dagre from "dagre";
@@ -102,14 +103,58 @@ export class BinaryTree {
 
   protected unlink(node: BinaryTreeNode, parent: BinaryTreeNode): string {
     assert.strictEqual(node.parent, parent);
-    if (parent.left == node) {
+    if (parent.left === node) {
       parent.left = null;
-    } else if (parent.right == node) {
+    } else if (parent.right === node) {
       parent.right = null;
     } else {
       assert.fail("try to unlink nodes that aren't linked");
     }
     node.parent = null;
     return `${parent.id}-${node.id}`;
+  }
+
+  protected rightRotate(x: BinaryTreeNode): void {
+    const y = x.left;
+    assert(y !== null);
+    
+    x.left = y.right;
+    if (y.right !== null) {
+      y.right.parent = x;
+    }
+    
+    y.parent = x.parent;
+    if (x.parent === null) {
+      this.root = y;
+    } else if (x === x.parent.right) {
+      x.parent.right = y;
+    } else {
+      x.parent.left = y;
+    }
+    
+    y.right = x;
+    x.parent = y;
+  }
+  
+  protected leftRotate(x: BinaryTreeNode): void {
+    const y = x.right;
+    assert(y !== null);
+    
+    x.right = y.left;
+    if (y.left !== null) {
+      y.left.parent = x;
+    }
+    
+    y.parent = x.parent;
+    if (x.parent === null) {
+      this.root = y;
+    } else if (x === x.parent.left) {
+      x.parent.left = y;
+    } else {
+      x.parent.right = y;
+    }
+    
+    y.left = x;
+    x.parent = y;
   }
 }

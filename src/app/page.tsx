@@ -1,16 +1,64 @@
 
 "use client";
 
+import React from 'react';
 import { GraphRenderer } from "@/components/visual-ds/graph-renderer";
 import { Controls } from "@/components/visual-ds/controls";
 import { useBinarySearchTreeVisualizer } from "@/hooks/use-binary-search-tree-visualizer";
+import { useSplayTreeVisualizer } from "@/hooks/use-splay-tree-visualizer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Github, Moon, Sun, Laptop } from "lucide-react";
+import { ChevronDown, Github, Moon, Sun, Laptop } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/hooks/use-theme";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { AnimatePresence } from 'framer-motion';
+
+type DataStructure = 'bst' | 'splay';
+
+const dataStructureLabels: Record<DataStructure, string> = {
+  bst: 'Binary Search Tree',
+  splay: 'Splay Tree',
+};
+
+const isValidDataStructure = (value: string): value is DataStructure => {
+  return value in dataStructureLabels;
+};
 
 export default function Home() {
+  const [dsType, setDsType] = React.useState<DataStructure>('bst');
+  
+  const bst = useBinarySearchTreeVisualizer();
+  const splay = useSplayTreeVisualizer();
+
+  const visualizers: Record<DataStructure, any> = {
+    bst: bst,
+    splay: splay,
+  };
+
+  React.useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.substring(1);
+      if (isValidDataStructure(hash)) {
+        setDsType(hash);
+      } else {
+        setDsType('bst');
+      }
+    };
+
+    handleHashChange(); // Set initial state from hash
+    window.addEventListener('hashchange', handleHashChange, false);
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange, false);
+    };
+  }, []);
+
+  const handleDsTypeChange = (value: string) => {
+    if (isValidDataStructure(value)) {
+      window.location.hash = value;
+      setDsType(value);
+    }
+  };
+
   const {
     nodes,
     edges,
@@ -23,7 +71,7 @@ export default function Home() {
     searchNode,
     animationControls,
     currentAnimationStep,
-  } = useBinarySearchTreeVisualizer();
+  } = visualizers[dsType];
   
   const { setTheme } = useTheme();
 
@@ -74,16 +122,34 @@ export default function Home() {
           <div className="flex flex-col lg:col-span-9">
             <Card className="flex flex-grow flex-col">
               <CardHeader>
-                <CardTitle>Binary Search Tree</CardTitle>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <div className="flex cursor-pointer items-center gap-2 text-2xl font-semibold leading-none tracking-tight">
+                      {dataStructureLabels[dsType]}
+                      <ChevronDown className="h-5 w-5" />
+                    </div>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    <DropdownMenuLabel>Choose Data Structure</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuRadioGroup value={dsType} onValueChange={handleDsTypeChange}>
+                      <DropdownMenuRadioItem value="bst">{dataStructureLabels['bst']}</DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value="splay">{dataStructureLabels['splay']}</DropdownMenuRadioItem>
+                    </DropdownMenuRadioGroup>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </CardHeader>
               <CardContent className="flex-grow">
-                <GraphRenderer
-                  nodes={nodes}
-                  edges={edges}
-                  visitorNodeId={visitorNodeId}
-                  nodeStyles={nodeStyles}
-                  edgeStyles={edgeStyles}
-                />
+                <AnimatePresence mode="wait">
+                  <GraphRenderer
+                    key={dsType}
+                    nodes={nodes}
+                    edges={edges}
+                    visitorNodeId={visitorNodeId}
+                    nodeStyles={nodeStyles}
+                    edgeStyles={edgeStyles}
+                  />
+                </AnimatePresence>
               </CardContent>
             </Card>
           </div>

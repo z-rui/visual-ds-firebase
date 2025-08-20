@@ -3,7 +3,7 @@
 
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { useToast } from "@/hooks/use-toast";
-import { BinarySearchTree } from '@/lib/ds/binary-search-tree';
+import { SplayTree } from '@/lib/ds/splay-tree';
 import { GraphScene } from '@/types/graph-scene';
 import { GraphAnimationProducer } from '@/lib/animation/graph';
 
@@ -29,12 +29,12 @@ const ANIMATION_INTERVAL = 750; // Base interval for auto-play
 
 const initialTreeData = [50, 25, 75, 15, 35, 65, 85];
 
-export function useBinarySearchTreeVisualizer() {
+export function useSplayTreeVisualizer() {
   const { toast } = useToast();
 
   const [animationProducer,] = useState(() => new GraphAnimationProducer);
-  const [tree,] = useState<BinarySearchTree>(() => {
-    const tree = new BinarySearchTree(animationProducer);
+  const [tree,] = useState<SplayTree>(() => {
+    const tree = new SplayTree(animationProducer);
     initialTreeData.forEach(value => { tree.insert(value) });
     return tree;
   });

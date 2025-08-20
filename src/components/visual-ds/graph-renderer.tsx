@@ -44,7 +44,7 @@ const Node = React.memo(({ node, nodeStyle }: { node: VisualNode, nodeStyle?: No
       <text
         textAnchor="middle"
         dominantBaseline="central"
-        className="fill-foreground text-lg font-medium pointer-events-none select-none"
+        className="pointer-events-none select-none fill-foreground text-lg font-medium"
       >
         {node.value}
       </text>
@@ -157,46 +157,54 @@ export function GraphRenderer({
   }, [visitorNodeId, nodeMap]);
 
   return (
-    <motion.svg
-        ref={svgRef}
-        className="h-full w-full min-h-[400px]"
-        aria-label="Graph visualization"
-        animate={{ viewBox }}
-        transition={{ duration: 0.5, ease: "easeInOut" }}
+    <motion.div
+      className="h-full w-full"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.3 }}
     >
-        <AnimatePresence>
-          {edges.map((edge) => {
-              const fromNode = nodeMap.get(edge.from);
-              const toNode = nodeMap.get(edge.to);
-              if (!fromNode || !toNode) return null;
-              return <Edge key={edge.id} from={fromNode} to={toNode} edgeStyle={edgeStyles.get(edge.id)} />;
-          })}
-          {nodes.map((node) => (
-              <Node
-                  key={node.id}
-                  node={node}
-                  nodeStyle={nodeStyles.get(node.id)}
+      <motion.svg
+          ref={svgRef}
+          className="h-full w-full min-h-[400px]"
+          aria-label="Graph visualization"
+          animate={{ viewBox }}
+          transition={{ duration: 0.5, ease: "easeInOut" }}
+      >
+          <AnimatePresence>
+            {edges.map((edge) => {
+                const fromNode = nodeMap.get(edge.from);
+                const toNode = nodeMap.get(edge.to);
+                if (!fromNode || !toNode) return null;
+                return <Edge key={edge.id} from={fromNode} to={toNode} edgeStyle={edgeStyles.get(edge.id)} />;
+            })}
+            {nodes.map((node) => (
+                <Node
+                    key={node.id}
+                    node={node}
+                    nodeStyle={nodeStyles.get(node.id)}
+                />
+            ))}
+            {visitorPosition && (
+              <motion.circle
+                layoutId="visitor-circle"
+                r={NODE_RADIUS + 4}
+                fill="none"
+                stroke="hsl(var(--accent))"
+                strokeWidth={4}
+                strokeDasharray="4 4"
+                initial={{ opacity: 0, cx: visitorPosition.x, cy: visitorPosition.y }}
+                animate={{
+                  opacity: 1,
+                  cx: visitorPosition.x,
+                  cy: visitorPosition.y
+                }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.4, ease: "easeInOut" }}
               />
-          ))}
-          {visitorPosition && (
-            <motion.circle
-              layoutId="visitor-circle"
-              r={NODE_RADIUS + 4}
-              fill="none"
-              stroke="hsl(var(--accent))"
-              strokeWidth={4}
-              strokeDasharray="4 4"
-              initial={{ opacity: 0, cx: visitorPosition.x, cy: visitorPosition.y }}
-              animate={{
-                opacity: 1,
-                cx: visitorPosition.x,
-                cy: visitorPosition.y
-              }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.4, ease: "easeInOut" }}
-            />
-          )}
-        </AnimatePresence>
-    </motion.svg>
+            )}
+          </AnimatePresence>
+      </motion.svg>
+    </motion.div>
   );
 }
