@@ -2,9 +2,6 @@ import { BinaryTreeNode } from "@/types/binary-tree";
 import { BinaryTree } from "./binary-tree";
 
 export class BinarySearchTree extends BinaryTree {
-  public getRoot(): BinaryTreeNode | null {
-    return this.root;
-  }
 
   public search(value: number): void {
     let current = this.root;

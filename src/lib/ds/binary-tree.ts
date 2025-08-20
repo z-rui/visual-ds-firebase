@@ -20,8 +20,7 @@ export class BinaryTree {
     this.root = null;
   }
 
-  // NOTE: This method is intended for testing purposes only.
-  public _getRootForTest(): BinaryTreeNode | null {
+  public getRoot(): BinaryTreeNode | null {
     return this.root;
   }
 
