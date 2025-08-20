@@ -3,18 +3,28 @@ import { BinaryTree } from "./binary-tree";
 
 export class BinarySearchTree extends BinaryTree {
 
-  public search(value: number): void {
+  protected findNode(value: number): { node: BinaryTreeNode | null, parent: BinaryTreeNode | null } {
+    let parent: BinaryTreeNode | null = null;
     let current = this.root;
     while (current) {
       this.ui.visit(current.id, current.value);
       if (value === current.value) {
-        this.ui.highlightNode(current.id, 'found');
-        this.ui.toast({ title: 'Found', description: `Node with value ${value} found.` });
-        return;
+        return { node: current, parent };
       }
+      parent = current;
       current = value < current.value ? current.left : current.right;
     }
-    this.ui.toast({ title: 'Not Found', description: `Node with value ${value} not found.`, variant: 'destructive' });
+    return { node: null, parent: parent };
+  }
+
+  public search(value: number): void {
+    const { node } = this.findNode(value);
+    if (node) {
+      this.ui.highlightNode(node.id, 'found');
+      this.ui.toast({ title: 'Found', description: `Node with value ${value} found.` });
+    } else {
+      this.ui.toast({ title: 'Not Found', description: `Node with value ${value} not found.`, variant: 'destructive' });
+    }
   }
 
   public insert(value: number): void {
@@ -46,24 +56,19 @@ export class BinarySearchTree extends BinaryTree {
   }
 
   public delete(value: number): void {
-    let parent = null;
-    let dir: 'left' | 'right' | undefined;
-    let current = this.root;
-    while (current) {
-      this.ui.visit(current.id, current.value);
-      if (value === current.value) {
-        this.ui.highlightNode(current.id, 'deletion');
-        break;
-      }
-      parent = current;
-      current = value < current.value ? current.left : current.right;
-    }
+    const { node: current, parent } = this.findNode(value);
+    
     if (current == null) {
       this.ui.unvisit();
       this.ui.toast({ title: 'Not Found', description: `Node with value ${value} not found.`, variant: 'destructive' });
       return;
     }
+
+    this.ui.highlightNode(current.id, 'deletion');
+    
     const edgesToHide: string[] = [];
+    let dir: 'left' | 'right' | undefined;
+    
     if (parent != null) {
       if (parent.left == current) {
         dir = 'left';

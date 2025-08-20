@@ -1,11 +1,18 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { BinarySearchTree } from './binary-search-tree';
 import type { GraphEventSink } from '@/types/graph-scene';
+import type { BinaryTreeNode } from '@/types/binary-tree';
 
-/**
- * A mock implementation of the GraphEventSink where each method is a no-op spy.
- * This prevents us from having to manually implement each method of the interface.
- */
+// This is the clean, type-safe way to test a protected method.
+// We create a subclass specifically for the test environment
+// that exposes the protected method as a public one.
+class TestableBinarySearchTree extends BinarySearchTree {
+  public findNode(value: number): { node: BinaryTreeNode | null, parent: BinaryTreeNode | null } {
+    return super.findNode(value);
+  }
+}
+
+// A "spy" mock that creates no-op functions for each method
 const mockSink: GraphEventSink = {
   visit: vi.fn(),
   unvisit: vi.fn(),
@@ -17,20 +24,46 @@ const mockSink: GraphEventSink = {
 };
 
 describe('BinarySearchTree', () => {
-  let tree: BinarySearchTree;
+  let tree: TestableBinarySearchTree;
 
-  // Re-create the tree and reset the mock sink before each test
+  // Re-create the tree before each test
   beforeEach(() => {
-    tree = new BinarySearchTree(mockSink);
-    vi.clearAllMocks(); // Resets spy counters
+    tree = new TestableBinarySearchTree(mockSink);
+    // Clear mock history before each test
+    vi.clearAllMocks();
+  });
+
+  describe('findNode', () => {
+    beforeEach(() => {
+      const values = [50, 25, 75, 12, 37];
+      values.forEach(v => tree.insert(v));
+    });
+
+    it('should find an existing node and its parent', () => {
+      const { node, parent } = tree.findNode(37);
+      expect(node).not.toBeNull();
+      expect(node?.value).toBe(37);
+      expect(parent).not.toBeNull();
+      expect(parent?.value).toBe(25);
+    });
+
+    it('should find the root node', () => {
+        const { node, parent } = tree.findNode(50);
+        expect(node).not.toBeNull();
+        expect(node?.value).toBe(50);
+        expect(parent).toBeNull();
+    });
+
+    it('should return null when node is not found', () => {
+        const { node } = tree.findNode(100);
+        expect(node).toBeNull();
+    });
   });
 
   describe('insert', () => {
     it('should insert a node into an empty tree', () => {
       tree.insert(50);
       const root = tree.getRoot();
-      
-      // Verify the structure of the tree
       expect(root).not.toBeNull();
       expect(root?.value).toBe(50);
       expect(root?.left).toBeNull();
@@ -42,10 +75,7 @@ describe('BinarySearchTree', () => {
       tree.insert(25);
       tree.insert(75);
       tree.insert(10);
-
       const root = tree.getRoot();
-
-      // Verify structure
       expect(root?.value).toBe(50);
       expect(root?.left?.value).toBe(25);
       expect(root?.right?.value).toBe(75);
@@ -57,50 +87,17 @@ describe('BinarySearchTree', () => {
       tree.insert(50);
       tree.insert(25);
       tree.insert(75);
-
-      // Get a snapshot of the root before the duplicate insertion
       const rootBefore = tree.getRoot();
-      
-      // Attempt to insert duplicate
+      const layoutBefore = JSON.stringify(rootBefore);
       tree.insert(50);
-
-      // Get a snapshot of the root after
       const rootAfter = tree.getRoot();
-
-      // The root should be the same object, and the structure should be identical
-      expect(rootAfter).toBe(rootBefore);
-      expect(rootAfter?.value).toBe(50);
-      expect(rootAfter?.left?.value).toBe(25);
-      expect(rootAfter?.right?.value).toBe(75);
-    });
-  });
-
-  describe('search', () => {
-    beforeEach(() => {
-      const values = [50, 25, 75];
-      values.forEach(v => tree.insert(v));
-    });
-
-    it('should find an existing node', () => {
-      // For the search test, we don't need to check the tree structure,
-      // as the main outcome is the series of UI events.
-      // However, since we are only testing the DS, we'll just run it.
-      // A more complete test would check the mockSink calls.
-      tree.search(75);
-      // No structural assertions needed, but we confirm it doesn't crash.
-      expect(true).toBe(true);
-    });
-
-    it('should not find a non-existent node', () => {
-       tree.search(99);
-       // No structural assertions needed, but we confirm it doesn't crash.
-       expect(true).toBe(true);
+      const layoutAfter = JSON.stringify(rootAfter);
+      expect(layoutAfter).toEqual(layoutBefore);
     });
   });
 
   describe('delete', () => {
     beforeEach(() => {
-      // Setup a standard tree for deletion tests
       const values = [50, 25, 75, 12, 37, 62, 87, 6, 18, 31, 43, 56, 68, 81, 93];
       values.forEach(v => tree.insert(v));
     });
@@ -113,27 +110,26 @@ describe('BinarySearchTree', () => {
     });
 
     it('should correctly delete a leaf node', () => {
-      tree.delete(6); // Leaf node
-      const root = tree.getRoot();
-      expect(root?.left?.left?.left).toBeNull(); // Formerly 6
+      tree.delete(6);
+      const { node } = tree.findNode(6);
+      expect(node).toBeNull();
     });
 
     it('should correctly delete a node with only a right child', () => {
-      tree.delete(12); // Node with only right child (18)
+      tree.delete(12);
       const root = tree.getRoot();
-      expect(root?.left?.left?.value).toBe(18); // 18 should replace 12
+      expect(root?.left?.left?.value).toBe(18);
     });
 
     it('should correctly delete a node with only a left child', () => {
-      // First, add a node to create this specific case
       tree.insert(15);
-      tree.delete(18); // Node 18 now has only a left child (15)
+      tree.delete(18);
       const root = tree.getRoot();
-      expect(root?.left?.left?.right?.value).toBe(15); // 15 should replace 18
+      expect(root?.left?.left?.right?.value).toBe(15);
     });
 
     it('should correctly delete a node with two children (successor is right child)', () => {
-      tree.delete(62); // Node with two children (56, 68), successor (68) is right child
+      tree.delete(62);
       const root = tree.getRoot();
       expect(root?.right?.left?.value).toBe(68);
       expect(root?.right?.left?.left?.value).toBe(56);
@@ -141,22 +137,16 @@ describe('BinarySearchTree', () => {
     });
 
     it('should correctly delete a node with two children (successor is not right child)', () => {
-      tree.delete(25); // Node with two children (12, 37)
+      tree.delete(25);
       const root = tree.getRoot();
-      // The successor of 25 is 31.
-      // 31 should move up to replace 25.
-      // 37 becomes the left child of 43.
       expect(root?.left?.value).toBe(31);
       expect(root?.left?.right?.value).toBe(37);
-      expect(root?.left?.right?.left).toBeNull(); // 31's original spot is now empty
+      expect(root?.left?.right?.left).toBeNull();
     });
 
     it('should correctly delete the root node', () => {
       tree.delete(50);
       const root = tree.getRoot();
-      // The successor of 50 is 56.
-      // 56 should be the new root.
-      // 62 (56's original parent) should adopt 56's right child (if any, none in this case)
       expect(root?.value).toBe(56);
       expect(root?.right?.left?.value).toBe(62);
       expect(root?.right?.left?.left).toBeNull();
