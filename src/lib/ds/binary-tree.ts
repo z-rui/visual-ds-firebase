@@ -20,6 +20,11 @@ export class BinaryTree {
     this.root = null;
   }
 
+  // NOTE: This method is intended for testing purposes only.
+  public _getRootForTest(): BinaryTreeNode | null {
+    return this.root;
+  }
+
   public getLayout(): [VisualNode[], VisualEdge[]] {
     if (this.root == null) {
       return [[], []];
