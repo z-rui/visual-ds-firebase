@@ -15,9 +15,21 @@ import { FastForward, Pause, Play, Rewind, StepBack, StepForward } from 'lucide-
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { BinaryTreeVisualizer } from "@/hooks/use-binary-tree-visualizer";
 
-interface ControlsProps extends BinaryTreeVisualizer {
+// A bit of a hack to make the Controls component generic
+// It can accept actions from either a tree or a heap visualizer
+interface ControlsProps {
+    actions: {
+        add?: (value: number) => void;
+        remove?: (value: number) => void;
+        search?: (value: number) => void;
+        extractMin?: () => void;
+    },
+    isAnimating: boolean;
+    animationControls: AnimationControls;
+    currentAnimationStep: GraphScene | null;
+    clearTree: () => void;
+    addRandomNodes: (count?: number) => void;
 }
 
 const formSchema = z.object({
@@ -57,6 +69,12 @@ export function Controls({
     const value = form.getValues("value");
     addRandomNodes(value !== '' ? value : undefined);
     form.reset({ value: '' });
+  };
+
+  const handleExtractMin = () => {
+    if (actions.extractMin) {
+      actions.extractMin();
+    }
   };
 
   const {
@@ -117,6 +135,7 @@ export function Controls({
               {actions.add && <Button type="button" onClick={() => handleAction(actions.add)} disabled={isAnimating || isValueInvalid}>Add Node</Button>}
               {actions.remove && <Button type="button" variant="outline" onClick={() => handleAction(actions.remove)} disabled={isAnimating || isValueInvalid}>Remove Node</Button>}
               {actions.search && <Button type="button" variant="outline" className="col-span-1 sm:col-span-2" onClick={() => handleAction(actions.search)} disabled={isAnimating || isValueInvalid}>Search Node</Button>}
+              {actions.extractMin && <Button type="button" className="col-span-1 sm:col-span-2" onClick={handleExtractMin} disabled={isAnimating}>Extract Min</Button>}
             </div>
           </form>
         </Form>

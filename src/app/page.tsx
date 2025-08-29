@@ -6,6 +6,7 @@ import { GraphRenderer } from "@/components/visual-ds/graph-renderer";
 import { Controls } from "@/components/visual-ds/controls";
 import { useBinarySearchTreeVisualizer } from "@/hooks/use-binary-search-tree-visualizer";
 import { useSplayTreeVisualizer } from "@/hooks/use-splay-tree-visualizer";
+import { useHeapVisualizer } from "@/hooks/use-heap-visualizer";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { ChevronDown, Github, Moon, Sun, Laptop } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,24 +15,29 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { AnimatePresence } from 'framer-motion';
 import { useBinaryTreeVisualizer, BinaryTreeVisualizer } from '@/hooks/use-binary-tree-visualizer';
 
-type DataStructure = 'bst' | 'splay';
+type DataStructure = 'bst' | 'splay' | 'heap';
+
+type Visualizer = ReturnType<typeof useVisualizer>;
 
 const dataStructureLabels: Record<DataStructure, string> = {
   bst: 'Binary Search Tree',
   splay: 'Splay Tree',
+  heap: 'Min Heap',
 };
 
 const isValidDataStructure = (value: string): value is DataStructure => {
   return value in dataStructureLabels;
 };
 
-const useVisualizer = (dsType: DataStructure): BinaryTreeVisualizer => {
+const useVisualizer = (dsType: DataStructure) => {
   const bst = useBinarySearchTreeVisualizer();
   const splay = useSplayTreeVisualizer();
+  const heap = useHeapVisualizer();
 
-  const visualizers: Record<DataStructure, BinaryTreeVisualizer> = {
+  const visualizers = {
     bst: bst,
     splay: splay,
+    heap: heap,
   };
 
   return visualizers[dsType];
@@ -121,6 +127,7 @@ export default function Home() {
                     <DropdownMenuRadioGroup value={dsType} onValueChange={handleDsTypeChange}>
                       <DropdownMenuRadioItem value="bst">{dataStructureLabels['bst']}</DropdownMenuRadioItem>
                       <DropdownMenuRadioItem value="splay">{dataStructureLabels['splay']}</DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value="heap">{dataStructureLabels['heap']}</DropdownMenuRadioItem>
                     </DropdownMenuRadioGroup>
                   </DropdownMenuContent>
                 </DropdownMenu>

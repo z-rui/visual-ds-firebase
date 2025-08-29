@@ -95,14 +95,28 @@ export function useBinaryTreeVisualizer(
         if (numNodes > 20) numNodes = 20;
 
         const MAX_VALUE = 100;
+        // Don't generate animations for random nodes
+        const producer = new GraphAnimationProducer();
+        const tempTree = new (tree.constructor as new (p: GraphAnimationProducer) => BinaryTree)(producer);
+        
+        // copy existing nodes
+        const [existingNodes] = tree.getLayout();
+        existingNodes.forEach(node => tempTree.insert(node.value));
+        
+        // add new random nodes
         for (let i = 0; i < numNodes; i++) {
             const value = Math.floor(Math.random() * MAX_VALUE);
-            tree.insert(value);
+            tempTree.insert(value);
         }
-        const [nodes, edges] = tree.getLayout();
+        
+        const [nodes, edges] = tempTree.getLayout();
+        tree.clear();
+        nodes.forEach(n => tree.insert(n.value));
+        
+        const [finalNodes, finalEdges] = tree.getLayout();
         resetToScene({
-            nodes,
-            edges,
+            nodes: finalNodes,
+            edges: finalEdges,
             visitorNodeId: null,
             nodeStyles: new Map(),
             edgeStyles: new Map(),
