@@ -35,8 +35,9 @@ The application is built upon a three-layer architecture that strictly separates
     -   `src/components/visual-ds/controls.tsx` (The Controls)
 -   **Role:** This layer is responsible for everything the user sees and interacts with.
 -   **Responsibilities:**
-    -   **`useBinarySearchTreeVisualizer` (Controller):**
-        -   Manages an instance of the `GraphAnimationProducer` and the `BinarySearchTree`, passing the producer to the tree's constructor.
+    -   **`use...Visualizer` Hooks (Controllers):**
+        -   Each data structure has its own visualizer hook (e.g., `useBinarySearchTreeVisualizer`).
+        -   Manages an instance of the `GraphAnimationProducer` and the corresponding data structure, passing the producer to the tree's constructor.
         -   Orchestrates the workflow: on a user action, it calls the appropriate data structure method (e.g., `tree.insert(10)`), and then retrieves the final `GraphScene[]` storyboard from the producer.
         -   It manages the playback of that storyboard (play, pause, step, speed).
     -   **`GraphRenderer` (Renderer):**
@@ -87,9 +88,7 @@ To provide a clear and intuitive visualization, the animation system must adhere
     -   The successor's border is highlighted with the accent color.
     -   `action`: `{ "type": "HIGHLIGHT_NODE", "reason": "successor" }`.
 4.  **Re-linking and Removal:**
-    -   The value of the node-to-be-deleted is replaced with the successor's value.
-    -   The successor node is now the one to be removed. All edges connected to the node being physically removed are hidden.
-    -   `action`: `{ "type": "HIDE_EDGE", "edgeIds": [...] }`.
+    -   The node to be deleted is unlinked and replaced in the tree structure by its successor or child. This implementation uses **node replacement**, not value replacement, for a more accurate visualization.
     -   The layout is recalculated without the removed node.
     -   `action`: `{ "type": "UPDATE_LAYOUT_NODES" }`. All nodes animate to their final positions.
     -   `action`: `{ "type": "UPDATE_LAYOUT_EDGES" }`. All edges animate to their final positions.
@@ -117,9 +116,11 @@ The testing approach will mirror the application's architecture by testing each 
 
 The architecture is explicitly designed to be extended with new data structures.
 
--   **Inheritance:** New tree-based structures (e.g., AVL Trees, Heaps) can inherit from the `BinaryTree` class. This provides them with the complex `getLayout()` logic for free, making them instantly visualizable. The developer can then focus on implementing the core algorithms (e.g., rotations for an AVL tree).
+-   **Inheritance:** New tree-based structures (e.g., `AVLTree`, `SplayTree`) inherit from the `BinarySearchTree` and `BinaryTree` classes. This provides them with the complex `getLayout()` logic for free, making them instantly visualizable. The developer can then focus on implementing the core algorithms (e.g., rotations).
 
--   **Dynamic UI:** The plan for supporting multiple data structures involves:
-    1.  **UI Switcher:** A `Select` dropdown will be added to the main page (`page.tsx`) to allow users to choose the active data structure.
-    2.  **Conditional Hooks:** The main page will use the selection to conditionally call the correct visualizer hook (e.g., `useBstVisualizer`, `useAvlVisualizer`, etc.).
-    3.  **Specific Controls:** The monolithic `Controls.tsx` will be broken into smaller, data-structure-specific components (e.g., `BstControls.tsx`, `HeapControls.tsx`) that contain the relevant actions for that structure. The main page will render the correct controls component based on the user's selection, ensuring the available actions always match the active data structure.
+-   **Specialized Node Types:** For structures that require extra information per node (like an AVL Tree's height), a specialized subclass of `BinaryTreeNode` (e.g., `AVLTreeNode`) can be created. The data structure class then overrides the `newNode()` factory method to produce these specialized nodes.
+
+-   **Dynamic UI:** The application supports multiple data structures by:
+    1.  **UI Switcher:** A `DropdownMenu` in `page.tsx` allows users to choose the active data structure.
+    2.  **Conditional Hooks:** The main page uses the selection to conditionally call the correct visualizer hook (e.g., `useBstVisualizer`, `useAvlVisualizer`).
+    3.  **URL Syncing:** The component uses `window.location.hash` to sync the selected data structure with the URL, allowing for bookmarking and sharing.
