@@ -30,6 +30,11 @@ export abstract class BinaryTree {
   public abstract delete(value: number): void;
   public abstract search(value: number): void;
 
+  public clear(): void {
+    this.root = null;
+    this.updateLayout();
+  }
+
   private edgeId(nodeId1: string, nodeId2: string): string {
     return `${nodeId1}-${nodeId2}`;
   }
@@ -88,7 +93,7 @@ export abstract class BinaryTree {
     return [finalNodes, finalEdges];
   }
 
-  protected updateLayout(unvisit: boolean = true): void {
+  public updateLayout(unvisit: boolean = true): void {
     const [nodes, edges] = this.getLayout();
     this.ui.updateLayout(nodes, edges, unvisit);
   }

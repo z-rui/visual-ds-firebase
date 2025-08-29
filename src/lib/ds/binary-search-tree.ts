@@ -35,6 +35,7 @@ export class BinarySearchTree extends BinaryTree {
       return this.root;
     } else {
       let current = this.root;
+      let parent: BinaryTreeNode | null = null;
       while (current) {
         this.ui.visit(current.id, current.value);
         if (value < current.value) {

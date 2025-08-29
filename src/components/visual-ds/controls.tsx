@@ -15,44 +15,48 @@ import { FastForward, Pause, Play, Rewind, StepBack, StepForward } from 'lucide-
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { BinaryTreeVisualizer } from "@/hooks/use-binary-tree-visualizer";
 
-type ActionFn = (value: number) => void;
-
-interface ControlsProps {
-  actions: {
-    add?: ActionFn,
-    remove?: ActionFn,
-    search?: ActionFn,
-  },
-  isAnimating: boolean;
-  animationControls: AnimationControls;
-  currentAnimationStep: GraphScene | null;
+interface ControlsProps extends BinaryTreeVisualizer {
 }
 
 const formSchema = z.object({
   value: z.coerce.number({
-    required_error: "A value is required.",
     invalid_type_error: "Value must be a number.",
-  }).min(0, "Value must be >= 0.").max(999, "Value must be <= 999.").optional().or(z.literal(undefined)),
+  }).min(0, "Value must be >= 0.").max(999, "Value must be <= 999.").optional().or(z.literal('')),
 });
 
 
 type FormSchema = z.infer<typeof formSchema>;
 
-export function Controls({ actions, isAnimating, animationControls, currentAnimationStep }: ControlsProps) {
+export function Controls({ 
+  actions,
+  isAnimating,
+  animationControls,
+  currentAnimationStep,
+  clearTree,
+  addRandomNodes
+ }: ControlsProps) {
   const form = useForm<FormSchema>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      value: undefined,
+      value: '',
     },
   });
 
-  const handleAction = (actionFn?: ActionFn) => {
+  const handleAction = (actionFn?: (value: number) => void) => {
     const value = form.getValues("value");
-    if (value === undefined || !actionFn) return;
+    if (value === '' || value === undefined || !actionFn) return;
 
     actionFn(value);
-    form.reset({ value: undefined });
+    form.reset({ value: '' });
+  };
+  
+  const handleAddRandom = () => {
+    if (!addRandomNodes) return;
+    const value = form.getValues("value");
+    addRandomNodes(value !== '' ? value : undefined);
+    form.reset({ value: '' });
   };
 
   const {
@@ -73,7 +77,7 @@ export function Controls({ actions, isAnimating, animationControls, currentAnima
     setAnimationSpeed,
   } = animationControls;
 
-  const isFormInvalid = !form.formState.isValid;
+  const isValueInvalid = form.getValues("value") === '' || !form.formState.isValid;
 
   return (
     <Card>
@@ -82,7 +86,7 @@ export function Controls({ actions, isAnimating, animationControls, currentAnima
       </CardHeader>
       <CardContent className="space-y-6">
         <Form {...form}>
-          <form className="space-y-4">
+          <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
             <FormField
               control={form.control}
               name="value"
@@ -95,10 +99,9 @@ export function Controls({ actions, isAnimating, animationControls, currentAnima
                       type="number"
                       placeholder="e.g., 42"
                       {...field}
-                      value={field.value ?? ''}
                       onChange={(e) => {
                         if (e.target.value === '') {
-                          field.onChange(undefined);
+                          field.onChange('');
                         } else {
                           field.onChange(e.target.valueAsNumber);
                         }
@@ -111,12 +114,17 @@ export function Controls({ actions, isAnimating, animationControls, currentAnima
               )}
             />
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              {actions.add && <Button type="button" onClick={() => handleAction(actions.add)} disabled={isAnimating || isFormInvalid}>Add Node</Button>}
-              {actions.remove && <Button type="button" variant="outline" onClick={() => handleAction(actions.remove)} disabled={isAnimating || isFormInvalid}>Remove Node</Button>}
-              {actions.search && <Button type="button" variant="outline" className="col-span-1 sm:col-span-2" onClick={() => handleAction(actions.search)} disabled={isAnimating || isFormInvalid}>Search Node</Button>}
+              {actions.add && <Button type="button" onClick={() => handleAction(actions.add)} disabled={isAnimating || isValueInvalid}>Add Node</Button>}
+              {actions.remove && <Button type="button" variant="outline" onClick={() => handleAction(actions.remove)} disabled={isAnimating || isValueInvalid}>Remove Node</Button>}
+              {actions.search && <Button type="button" variant="outline" className="col-span-1 sm:col-span-2" onClick={() => handleAction(actions.search)} disabled={isAnimating || isValueInvalid}>Search Node</Button>}
             </div>
           </form>
         </Form>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {clearTree && <Button type="button" variant="destructive" onClick={clearTree} disabled={isAnimating}>Clear</Button>}
+          {addRandomNodes && <Button type="button" variant="secondary" onClick={handleAddRandom} disabled={isAnimating}>Add Random</Button>}
+        </div>
+
         <div className="flex items-center space-x-2 pt-2">
           <Checkbox id="auto-animate" checked={isAutoPlaying} onCheckedChange={(checked) => setIsAutoPlaying(!!checked)} />
           <Label htmlFor="auto-animate">Auto-Animate on Start</Label>

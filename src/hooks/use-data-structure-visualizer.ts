@@ -54,6 +54,14 @@ export function useDataStructureVisualizer(
     edgeStyles,
   } = displayedStep;
 
+  const resetToScene = useCallback((scene: GraphScene) => {
+    setBaseLayout(scene);
+    setAnimationSteps([]);
+    setCurrentStep(0);
+    setIsAnimating(false);
+    setIsPlaying(false);
+  }, []);
+
   const applyToast = useCallback((step?: GraphScene) => {
     if (step?.toast) {
       toast(step.toast);
@@ -68,10 +76,10 @@ export function useDataStructureVisualizer(
     if (animationIntervalRef.current) clearInterval(animationIntervalRef.current);
     
     setAnimationSteps(steps);
+    setCurrentStep(0);
 
     if (steps.length > 0) {
       setIsAnimating(true);
-      setCurrentStep(0);
       if (isAutoPlaying && steps.length > 1) {
         setIsPlaying(true);
       } else {
@@ -169,5 +177,6 @@ export function useDataStructureVisualizer(
     startAnimation,
     animationControls,
     currentAnimationStep: displayedStep,
+    resetToScene,
   };
 }

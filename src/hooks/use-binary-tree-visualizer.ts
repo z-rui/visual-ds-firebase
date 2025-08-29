@@ -14,9 +14,13 @@ export interface BinaryTreeVisualizer {
     nodeStyles: Map<string, NodeStyle>;
     edgeStyles: Map<string, EdgeStyle>;
     isAnimating: boolean;
-    addNode: (value: number) => void;
-    removeNode: (value: number) => void;
-    searchNode: (value: number) => void;
+    actions: {
+        add: (value: number) => void;
+        remove: (value: number) => void;
+        search: (value: number) => void;
+    },
+    clearTree: () => void;
+    addRandomNodes: (count?: number) => void;
     animationControls: AnimationControls;
     currentAnimationStep: GraphScene | null;
 }
@@ -44,6 +48,7 @@ export function useBinaryTreeVisualizer(
         startAnimation,
         animationControls,
         currentAnimationStep,
+        resetToScene,
     } = useDataStructureVisualizer(initialScene, []);
 
     const runAlgorithm = useCallback((algorithm: () => void) => {
@@ -73,6 +78,37 @@ export function useBinaryTreeVisualizer(
         runAlgorithm(() => tree.search(value));
     }, [runAlgorithm, tree]);
 
+    const clearTree = useCallback(() => {
+        tree.clear();
+        const [nodes, edges] = tree.getLayout();
+        resetToScene({
+            nodes,
+            edges,
+            visitorNodeId: null,
+            nodeStyles: new Map(),
+            edgeStyles: new Map(),
+        });
+    }, [tree, resetToScene]);
+
+    const addRandomNodes = useCallback((count?: number) => {
+        let numNodes = count && count > 0 ? count : 10;
+        if (numNodes > 20) numNodes = 20;
+
+        const MAX_VALUE = 100;
+        for (let i = 0; i < numNodes; i++) {
+            const value = Math.floor(Math.random() * MAX_VALUE);
+            tree.insert(value);
+        }
+        const [nodes, edges] = tree.getLayout();
+        resetToScene({
+            nodes,
+            edges,
+            visitorNodeId: null,
+            nodeStyles: new Map(),
+            edgeStyles: new Map(),
+        });
+    }, [tree, resetToScene]);
+
     return {
         nodes,
         edges,
@@ -80,9 +116,13 @@ export function useBinaryTreeVisualizer(
         nodeStyles,
         edgeStyles,
         isAnimating,
-        addNode,
-        removeNode,
-        searchNode,
+        actions: {
+            add: addNode,
+            remove: removeNode,
+            search: searchNode,
+        },
+        clearTree,
+        addRandomNodes,
         animationControls,
         currentAnimationStep,
     };

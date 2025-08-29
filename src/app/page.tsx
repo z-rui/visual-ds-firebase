@@ -6,7 +6,7 @@ import { GraphRenderer } from "@/components/visual-ds/graph-renderer";
 import { Controls } from "@/components/visual-ds/controls";
 import { useBinarySearchTreeVisualizer } from "@/hooks/use-binary-search-tree-visualizer";
 import { useSplayTreeVisualizer } from "@/hooks/use-splay-tree-visualizer";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { ChevronDown, Github, Moon, Sun, Laptop } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/hooks/use-theme";
@@ -103,16 +103,7 @@ export default function Home() {
         </header>
         <div className="grid flex-grow grid-cols-1 gap-6 lg:grid-cols-12">
           <div className="lg:col-span-3">
-            <Controls
-              actions={{
-                add: visualizer.addNode,
-                remove: visualizer.removeNode,
-                search: visualizer.searchNode,
-              }}
-              isAnimating={visualizer.isAnimating}
-              animationControls={visualizer.animationControls}
-              currentAnimationStep={visualizer.currentAnimationStep}
-            />
+            <Controls {...visualizer} />
           </div>
           <div className="flex flex-col lg:col-span-9">
             <Card className="flex flex-grow flex-col">
