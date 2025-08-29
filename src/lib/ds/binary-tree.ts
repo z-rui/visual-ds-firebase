@@ -46,7 +46,7 @@ export class BinaryTree {
         return;
       }
 
-      finalNodes.push({ id: node.id, value: node.value, x: 0, y: 0 });
+      finalNodes.push({ id: node.id, value: node.value, tag: node.tag, x: 0, y: 0 });
       g.setNode(node.id, { label: node.value.toString(), width: NODE_WIDTH, height: NODE_HEIGHT });
 
       if (node.left) {
@@ -114,7 +114,7 @@ export class BinaryTree {
       assert.fail("try to unlink nodes that aren't linked");
     }
     node.parent = null;
-    return this.edgeId(node.id, parent.id);
+    return this.edgeId(parent.id, node.id);
   }
 
   protected rightRotate(x: BinaryTreeNode): void {

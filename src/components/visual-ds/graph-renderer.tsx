@@ -48,6 +48,26 @@ const Node = React.memo(({ node, nodeStyle }: { node: VisualNode, nodeStyle?: No
       >
         {node.value}
       </text>
+      {node.tag !== undefined && (
+        <text
+          x={-NODE_RADIUS}
+          y={-NODE_RADIUS}
+          dx={-4}
+          dy={-4}
+          textAnchor="start"
+          dominantBaseline="auto"
+          className="pointer-events-none select-none fill-accent-foreground text-xs font-semibold"
+          style={{
+              paintOrder: 'stroke',
+              stroke: 'hsl(var(--accent))',
+              strokeWidth: '2px',
+              strokeLinecap: 'butt',
+              strokeLinejoin: 'miter'
+          }}
+        >
+          {node.tag}
+        </text>
+      )}
     </motion.g>
   );
 });

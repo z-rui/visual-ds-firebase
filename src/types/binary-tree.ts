@@ -4,6 +4,7 @@ export class BinaryTreeNode {
     parent: BinaryTreeNode | null;
     left: BinaryTreeNode | null;
     right: BinaryTreeNode | null;
+    tag?: string | number;
 
     constructor(id: string, value: number) {
         this.id = id;

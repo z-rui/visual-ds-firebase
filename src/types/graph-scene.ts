@@ -3,6 +3,7 @@ export type VisualNode = {
   value: number;
   x: number;
   y: number;
+  tag?: string | number;
 };
 
 export type VisualEdge = {
