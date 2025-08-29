@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { useTheme } from "@/hooks/use-theme";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { AnimatePresence } from 'framer-motion';
+import { useBinaryTreeVisualizer, BinaryTreeVisualizer } from '@/hooks/use-binary-tree-visualizer';
 
 type DataStructure = 'bst' | 'splay';
 
@@ -24,16 +25,22 @@ const isValidDataStructure = (value: string): value is DataStructure => {
   return value in dataStructureLabels;
 };
 
-export default function Home() {
-  const [dsType, setDsType] = React.useState<DataStructure>('bst');
-  
+const useVisualizer = (dsType: DataStructure): BinaryTreeVisualizer => {
   const bst = useBinarySearchTreeVisualizer();
   const splay = useSplayTreeVisualizer();
 
-  const visualizers: Record<DataStructure, any> = {
+  const visualizers: Record<DataStructure, BinaryTreeVisualizer> = {
     bst: bst,
     splay: splay,
   };
+
+  return visualizers[dsType];
+}
+
+export default function Home() {
+  const [dsType, setDsType] = React.useState<DataStructure>('bst');
+  
+  const visualizer = useVisualizer(dsType);
 
   React.useEffect(() => {
     const handleHashChange = () => {
@@ -59,20 +66,6 @@ export default function Home() {
     }
   };
 
-  const {
-    nodes,
-    edges,
-    visitorNodeId,
-    nodeStyles,
-    edgeStyles,
-    isAnimating,
-    addNode,
-    removeNode,
-    searchNode,
-    animationControls,
-    currentAnimationStep,
-  } = visualizers[dsType];
-  
   const { setTheme } = useTheme();
 
   return (
@@ -111,12 +104,14 @@ export default function Home() {
         <div className="grid flex-grow grid-cols-1 gap-6 lg:grid-cols-12">
           <div className="lg:col-span-3">
             <Controls
-              onAdd={addNode}
-              onRemove={removeNode}
-              onSearch={searchNode}
-              isAnimating={isAnimating}
-              animationControls={animationControls}
-              currentAnimationStep={currentAnimationStep}
+              actions={{
+                add: visualizer.addNode,
+                remove: visualizer.removeNode,
+                search: visualizer.searchNode,
+              }}
+              isAnimating={visualizer.isAnimating}
+              animationControls={visualizer.animationControls}
+              currentAnimationStep={visualizer.currentAnimationStep}
             />
           </div>
           <div className="flex flex-col lg:col-span-9">
@@ -143,11 +138,11 @@ export default function Home() {
                 <AnimatePresence mode="wait">
                   <GraphRenderer
                     key={dsType}
-                    nodes={nodes}
-                    edges={edges}
-                    visitorNodeId={visitorNodeId}
-                    nodeStyles={nodeStyles}
-                    edgeStyles={edgeStyles}
+                    nodes={visualizer.nodes}
+                    edges={visualizer.edges}
+                    visitorNodeId={visualizer.visitorNodeId}
+                    nodeStyles={visualizer.nodeStyles}
+                    edgeStyles={visualizer.edgeStyles}
                   />
                 </AnimatePresence>
               </CardContent>

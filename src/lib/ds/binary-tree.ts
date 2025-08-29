@@ -1,3 +1,4 @@
+
 import { BinaryTreeNode } from "@/types/binary-tree";
 import { GraphEventSink, VisualEdge, VisualNode } from "@/types/graph-scene";
 import dagre from "dagre";
@@ -9,7 +10,7 @@ const NODE_HEIGHT = 60;
 const HORIZONTAL_SPACING = 10;
 const VERTICAL_SPACING = 10;
 
-export class BinaryTree {
+export abstract class BinaryTree {
   private nodeIdCounter: number;
   public ui: GraphEventSink;
   protected root: BinaryTreeNode | null;
@@ -23,6 +24,11 @@ export class BinaryTree {
   public getRoot(): BinaryTreeNode | null {
     return this.root;
   }
+
+  // Abstract methods that must be implemented by subclasses
+  public abstract insert(value: number): BinaryTreeNode | null;
+  public abstract delete(value: number): void;
+  public abstract search(value: number): void;
 
   private edgeId(nodeId1: string, nodeId2: string): string {
     return `${nodeId1}-${nodeId2}`;
@@ -120,12 +126,12 @@ export class BinaryTree {
   protected rightRotate(x: BinaryTreeNode): void {
     const y = x.left;
     assert(y !== null);
-    
+
     x.left = y.right;
     if (y.right !== null) {
       y.right.parent = x;
     }
-    
+
     y.parent = x.parent;
     if (x.parent === null) {
       this.root = y;
@@ -134,20 +140,20 @@ export class BinaryTree {
     } else {
       x.parent.left = y;
     }
-    
+
     y.right = x;
     x.parent = y;
   }
-  
+
   protected leftRotate(x: BinaryTreeNode): void {
     const y = x.right;
     assert(y !== null);
-    
+
     x.right = y.left;
     if (y.left !== null) {
       y.left.parent = x;
     }
-    
+
     y.parent = x.parent;
     if (x.parent === null) {
       this.root = y;
@@ -156,7 +162,7 @@ export class BinaryTree {
     } else {
       x.parent.right = y;
     }
-    
+
     y.left = x;
     x.parent = y;
   }

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { AnimationControls } from "@/hooks/use-binary-search-tree-visualizer";
+import type { AnimationControls } from "@/hooks/use-data-structure-visualizer";
 import type { GraphScene } from "@/types/graph-scene";
 import { Slider } from '@/components/ui/slider';
 import { FastForward, Pause, Play, Rewind, StepBack, StepForward } from 'lucide-react';
@@ -16,10 +16,14 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 
+type ActionFn = (value: number) => void;
+
 interface ControlsProps {
-  onAdd: (value: number) => void;
-  onRemove: (value: number) => void;
-  onSearch: (value: number) => void;
+  actions: {
+    add?: ActionFn,
+    remove?: ActionFn,
+    search?: ActionFn,
+  },
   isAnimating: boolean;
   animationControls: AnimationControls;
   currentAnimationStep: GraphScene | null;
@@ -35,7 +39,7 @@ const formSchema = z.object({
 
 type FormSchema = z.infer<typeof formSchema>;
 
-export function Controls({ onAdd, onRemove, onSearch, isAnimating, animationControls, currentAnimationStep }: ControlsProps) {
+export function Controls({ actions, isAnimating, animationControls, currentAnimationStep }: ControlsProps) {
   const form = useForm<FormSchema>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -43,15 +47,11 @@ export function Controls({ onAdd, onRemove, onSearch, isAnimating, animationCont
     },
   });
 
-  const handleAction = (action: 'add' | 'remove' | 'search') => {
+  const handleAction = (actionFn?: ActionFn) => {
     const value = form.getValues("value");
-    if (value === undefined) return;
+    if (value === undefined || !actionFn) return;
 
-    switch (action) {
-      case 'add': onAdd(value); break;
-      case 'remove': onRemove(value); break;
-      case 'search': onSearch(value); break;
-    }
+    actionFn(value);
     form.reset({ value: undefined });
   };
 
@@ -111,9 +111,9 @@ export function Controls({ onAdd, onRemove, onSearch, isAnimating, animationCont
               )}
             />
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <Button type="button" onClick={() => handleAction('add')} disabled={isAnimating || isFormInvalid}>Add Node</Button>
-              <Button type="button" variant="outline" onClick={() => handleAction('remove')} disabled={isAnimating || isFormInvalid}>Remove Node</Button>
-              <Button type="button" variant="outline" className="col-span-1 sm:col-span-2" onClick={() => handleAction('search')} disabled={isAnimating || isFormInvalid}>Search Node</Button>
+              {actions.add && <Button type="button" onClick={() => handleAction(actions.add)} disabled={isAnimating || isFormInvalid}>Add Node</Button>}
+              {actions.remove && <Button type="button" variant="outline" onClick={() => handleAction(actions.remove)} disabled={isAnimating || isFormInvalid}>Remove Node</Button>}
+              {actions.search && <Button type="button" variant="outline" className="col-span-1 sm:col-span-2" onClick={() => handleAction(actions.search)} disabled={isAnimating || isFormInvalid}>Search Node</Button>}
             </div>
           </form>
         </Form>

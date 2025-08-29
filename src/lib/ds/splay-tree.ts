@@ -54,41 +54,12 @@ export class SplayTree extends BinarySearchTree {
     }
   }
   
-  public insert(value: number): void {
-    if (this.root == null) {
-      this.root = this.newNode(value);
-      this.updateLayout();
-      return;
+  public insert(value: number): BinaryTreeNode | null {
+    const newNode = super.insert(value);
+    if (newNode) {
+      this.splay(newNode);
     }
-  
-    let current: BinaryTreeNode | null = this.root;
-    let parent: BinaryTreeNode | null = null;
-    while (current) {
-      parent = current;
-      this.ui.visit(current.id, current.value);
-      if (value < current.value) {
-        current = current.left;
-      } else if (value > current.value) {
-        current = current.right;
-      } else {
-        this.ui.toast({ title: 'Duplicate', description: `Node with value ${value} already exists.`, variant: 'destructive' });
-        this.splay(current);
-        return;
-      }
-    }
-  
-    const newNode = this.newNode(value);
-    if (value < parent!.value) {
-      this.link(newNode, parent!, 'left');
-    } else {
-      this.link(newNode, parent!, 'right');
-    }
-
-    // This is the fix: Update the layout to show the node as a leaf first.
-    this.updateLayout();
-    
-    // Then, splay the new node to the root.
-    this.splay(newNode);
+    return newNode;
   }
 
   public delete(value: number): void {
