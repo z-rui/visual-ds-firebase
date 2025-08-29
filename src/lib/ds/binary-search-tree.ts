@@ -66,7 +66,6 @@ export class BinarySearchTree extends BinaryTree {
 
     this.ui.highlightNode(current.id, 'deletion');
     
-    const edgesToHide: string[] = [];
     const parent = current.parent;
     let dir: 'left' | 'right' | undefined;
     
@@ -76,13 +75,13 @@ export class BinarySearchTree extends BinaryTree {
       } else {
         dir = 'right';
       }
-      edgesToHide.push(this.unlink(current, parent));
+      this.unlink(current, parent);
     }
     const left = current.left;
     const right = current.right;
     if (left == null) {
       if (right != null) {
-        edgesToHide.push(this.unlink(right, current));
+        this.unlink(right, current);
         if (parent && dir) {
           this.link(right, parent, dir);
         } else {
@@ -94,7 +93,7 @@ export class BinarySearchTree extends BinaryTree {
         }
       }
     } else if (right == null) {
-      edgesToHide.push(this.unlink(left, current));
+      this.unlink(left, current);
       if (parent && dir) {
         this.link(left, parent, dir);
       } else {
@@ -109,13 +108,13 @@ export class BinarySearchTree extends BinaryTree {
         successor = successor.left;
         this.ui.visit(successor.id, successor.value);
       }
-      edgesToHide.push(this.unlink(left, current));
-      edgesToHide.push(this.unlink(right, current));
+      this.unlink(left, current);
+      this.unlink(right, current);
       if (sParent != current) {
-        edgesToHide.push(this.unlink(successor, sParent));
+        this.unlink(successor, sParent);
         const sRight = successor.right;
         if (sRight != null) {
-          edgesToHide.push(this.unlink(sRight, successor));
+          this.unlink(sRight, successor);
           this.link(sRight, sParent, 'left');
         }
         this.link(right, successor, 'right');
@@ -127,7 +126,6 @@ export class BinarySearchTree extends BinaryTree {
         this.root = successor;
       }
     }
-    this.ui.hideEdge(edgesToHide);
     this.updateLayout();
   }
 }

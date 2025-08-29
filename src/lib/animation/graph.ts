@@ -27,6 +27,8 @@ export class GraphAnimationProducer implements GraphEventSink {
   }
 
   finish(): GraphScene[] {
+    this.current.nodeStyles.clear();
+    this.current.edgeStyles.clear();
     this.pushStep({ type: 'end' });
     return this.steps;
   }
@@ -70,10 +72,15 @@ export class GraphAnimationProducer implements GraphEventSink {
     if (unvisit) {
       this.current.visitorNodeId = null;
     }
-    this.current.nodeStyles.clear();
+    const edgeSet = new Set(edges.map(edge => edge.id));
+    const remainingEdges = this.current.edges.filter(edge => edgeSet.has(edge.id));
+    if (remainingEdges.length != this.current.edges.length) {
+      // hide gone edges first
+      this.current.edges = remainingEdges;
+      this.pushStep({ type: 'UPDATE_LAYOUT_HIDE_EDGES'});
+    }
     this.current.nodes = nodes;
     this.pushStep({ type: 'UPDATE_LAYOUT_NODES' });
-    this.current.edgeStyles.clear();
     this.current.edges = edges;
     this.pushStep({ type: 'UPDATE_LAYOUT_EDGES' });
   }

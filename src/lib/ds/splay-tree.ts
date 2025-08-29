@@ -3,16 +3,17 @@
 
 import type { BinaryTreeNode } from "@/types/binary-tree";
 import { BinarySearchTree } from "./binary-search-tree";
+import assert from "assert";
 
 export class SplayTree extends BinarySearchTree {
   
-  private splay(node: BinaryTreeNode | null): void {
+  private splay(node: BinaryTreeNode | null, parent: BinaryTreeNode | null = null): void {
     if (node === null) {
       return;
     }
     
-    while (node.parent !== null) {
-      if (node.parent.parent === null) {
+    while (node.parent !== parent && node.parent != null) {
+      if (node.parent.parent === parent || node.parent.parent === null) {
         if (node.parent.left === node) {
           // Zig
           this.rightRotate(node.parent);
@@ -44,8 +45,8 @@ export class SplayTree extends BinarySearchTree {
   public search(value: number): void {
     const node = this.findNode(value);
     if (node) {
-      this.splay(node);
       this.ui.highlightNode(node.id, 'found');
+      this.splay(node);
       this.ui.toast({ title: 'Found', description: `Node with value ${value} found.` });
     } else {
       this.ui.unvisit();
@@ -99,17 +100,12 @@ export class SplayTree extends BinarySearchTree {
       return;
     }
     
+    this.ui.highlightNode(nodeToDelete.id, 'deletion');
     // Splay the node to be deleted (or its parent if it doesn't exist)
     this.splay(nodeToDelete);
 
     // After splaying, the node to delete is the root
-    nodeToDelete = this.root;
-    if (!nodeToDelete || nodeToDelete.value !== value) {
-        // Should not happen if findNode and splay work correctly
-        return;
-    }
-
-    this.ui.highlightNode(nodeToDelete.id, 'deletion');
+    assert.strictEqual(nodeToDelete, this.root);
 
     const leftSubtree = nodeToDelete.left;
     const rightSubtree = nodeToDelete.right;
@@ -120,21 +116,21 @@ export class SplayTree extends BinarySearchTree {
             rightSubtree.parent = null;
         }
     } else {
-        leftSubtree.parent = null;
         // Find the max in the left subtree
         let maxLeft = leftSubtree;
         while (maxLeft.right) {
             maxLeft = maxLeft.right;
         }
         // Splay the max in the left subtree, which makes it the root of the left subtree
-        this.splay(maxLeft);
-        
-        // The new root is the splayed maxLeft, which is now the root of the left subtree
-        this.root = leftSubtree;
-        this.root.right = rightSubtree;
+        this.ui.highlightNode(maxLeft.id, 'successor');
+        this.splay(maxLeft, nodeToDelete);
+        this.unlink(maxLeft, nodeToDelete);
         if (rightSubtree) {
-            rightSubtree.parent = this.root;
+          this.unlink(rightSubtree, nodeToDelete);
+          this.link(rightSubtree, maxLeft, 'right');
         }
+        // The new root is the splayed maxLeft, which is now the root of the left subtree
+        this.root = maxLeft;
     }
     
     this.updateLayout();
