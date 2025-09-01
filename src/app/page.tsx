@@ -12,8 +12,6 @@ import { ChevronDown, Github, Moon, Sun, Laptop } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/hooks/use-theme";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { AnimatePresence } from 'framer-motion';
-import { useBinaryTreeVisualizer, BinaryTreeVisualizer } from '@/hooks/use-binary-tree-visualizer';
 
 type DataStructure = 'bst' | 'splay' | 'heap';
 
@@ -133,16 +131,14 @@ export default function Home() {
                 </DropdownMenu>
               </CardHeader>
               <CardContent className="flex-grow">
-                <AnimatePresence mode="wait">
-                  <GraphRenderer
-                    key={dsType}
-                    nodes={visualizer.nodes}
-                    edges={visualizer.edges}
-                    visitorNodeId={visualizer.visitorNodeId}
-                    nodeStyles={visualizer.nodeStyles}
-                    edgeStyles={visualizer.edgeStyles}
-                  />
-                </AnimatePresence>
+                <GraphRenderer
+                  key={dsType}
+                  nodes={visualizer.nodes}
+                  edges={visualizer.edges}
+                  visitorNodeId={visualizer.visitorNodeId}
+                  nodeStyles={visualizer.nodeStyles}
+                  edgeStyles={visualizer.edgeStyles}
+                />
               </CardContent>
             </Card>
           </div>

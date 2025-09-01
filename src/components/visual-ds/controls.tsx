@@ -6,18 +6,17 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { AnimationControls } from "@/hooks/use-data-structure-visualizer";
 import type { GraphScene } from "@/types/graph-scene";
 import { Slider } from '@/components/ui/slider';
-import { FastForward, Pause, Play, Rewind, StepBack, StepForward } from 'lucide-react';
+import { FastForward, Pause, Play, Rewind, StepBack, StepForward, Plus, Trash2, Search, MoreHorizontal, Shuffle, CircleSlash, PlaySquare, ArrowDownToDot } from 'lucide-react';
+import { Label } from "@/components/ui/label";
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuCheckboxItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 
-// A bit of a hack to make the Controls component generic
-// It can accept actions from either a tree or a heap visualizer
 interface ControlsProps {
     actions: {
         add?: (value: number) => void;
@@ -66,9 +65,7 @@ export function Controls({
   
   const handleAddRandom = () => {
     if (!addRandomNodes) return;
-    const value = form.getValues("value");
-    addRandomNodes(value !== '' ? value : undefined);
-    form.reset({ value: '' });
+    addRandomNodes();
   };
 
   const handleExtractMin = () => {
@@ -99,10 +96,10 @@ export function Controls({
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="hidden lg:flex">
         <CardTitle>Controls</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent className="p-4 lg:p-6 lg:pt-6">
         <Form {...form}>
           <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
             <FormField
@@ -110,49 +107,88 @@ export function Controls({
               name="value"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Node Value (0-999)</FormLabel>
-                  <FormControl>
-                    <Input
-                      id="node-value"
-                      type="number"
-                      placeholder="e.g., 42"
-                      {...field}
-                      onChange={(e) => {
-                        if (e.target.value === '') {
-                          field.onChange('');
-                        } else {
-                          field.onChange(e.target.valueAsNumber);
-                        }
-                      }}
-                      disabled={isAnimating}
-                    />
-                  </FormControl>
-                  <FormMessage />
+                  <FormLabel className="hidden lg:block">Node Value (0-999)</FormLabel>
+                  <div className="flex items-start gap-2">
+                     {/* Combined Input and Buttons for all screen sizes */}
+                    <div className="flex w-full items-start gap-2">
+                      <div className="flex-grow">
+                        <FormControl>
+                          <Input
+                            id="node-value"
+                            type="number"
+                            placeholder="Node Value (0-999)"
+                            {...field}
+                            onChange={(e) => {
+                              if (e.target.value === '') {
+                                field.onChange('');
+                              } else {
+                                field.onChange(e.target.valueAsNumber);
+                              }
+                            }}
+                            disabled={isAnimating}
+                          />
+                        </FormControl>
+                        <FormMessage className="mt-2 lg:hidden" />
+                      </div>
+
+                      {/* Mobile Icon Buttons */}
+                      <div className="flex lg:hidden items-center gap-1">
+                          {actions.add && <Button type="button" size="icon" variant="default" onClick={() => handleAction(actions.add)} disabled={isAnimating || isValueInvalid}><Plus className="h-4 w-4" /><span className="sr-only">Add</span></Button>}
+                          {actions.remove && <Button type="button" size="icon" variant="outline" onClick={() => handleAction(actions.remove)} disabled={isAnimating || isValueInvalid}><Trash2 className="h-4 w-4" /><span className="sr-only">Remove</span></Button>}
+                          {actions.search && <Button type="button" size="icon" variant="outline" onClick={() => handleAction(actions.search)} disabled={isAnimating || isValueInvalid}><Search className="h-4 w-4" /><span className="sr-only">Search</span></Button>}
+                          {actions.extractMin && <Button type="button" size="icon" variant="default" onClick={handleExtractMin} disabled={isAnimating}><ArrowDownToDot className="h-4 w-4" /><span className="sr-only">Extract Min</span></Button>}
+                      </div>
+                      
+                      {/* Desktop "Add" Button */}
+                      {actions.add && <Button type="button" className="hidden lg:inline-flex" onClick={() => handleAction(actions.add)} disabled={isAnimating || isValueInvalid}><Plus/>Add</Button>}
+
+                      {/* Mobile Dropdown */}
+                      <div className="flex lg:hidden">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreHorizontal className="h-4 w-4" />
+                              <span className="sr-only">More options</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            {addRandomNodes && <DropdownMenuItem onSelect={handleAddRandom} disabled={isAnimating}><Shuffle className="mr-2 h-4 w-4" /><span>Add Random</span></DropdownMenuItem>}
+                            {clearTree && <DropdownMenuItem onSelect={clearTree} disabled={isAnimating}><CircleSlash className="mr-2 h-4 w-4" /><span>Clear</span></DropdownMenuItem>}
+                            <DropdownMenuSeparator />
+                            <DropdownMenuCheckboxItem checked={isAutoPlaying} onCheckedChange={setIsAutoPlaying}>
+                              <PlaySquare className="mr-2 h-4 w-4" />
+                              <span>Auto-Animate</span>
+                            </DropdownMenuCheckboxItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </div>
+                  </div>
+                   <FormMessage className="mt-2 hidden lg:block" />
                 </FormItem>
               )}
             />
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              {actions.add && <Button type="button" onClick={() => handleAction(actions.add)} disabled={isAnimating || isValueInvalid}>Add Node</Button>}
-              {actions.remove && <Button type="button" variant="outline" onClick={() => handleAction(actions.remove)} disabled={isAnimating || isValueInvalid}>Remove Node</Button>}
-              {actions.search && <Button type="button" variant="outline" className="col-span-1 sm:col-span-2" onClick={() => handleAction(actions.search)} disabled={isAnimating || isValueInvalid}>Search Node</Button>}
-              {actions.extractMin && <Button type="button" className="col-span-1 sm:col-span-2" onClick={handleExtractMin} disabled={isAnimating}>Extract Min</Button>}
+
+            {/* Desktop secondary buttons grid */}
+            <div className="hidden lg:grid lg:grid-cols-2 lg:gap-2">
+              {actions.remove && <Button type="button" variant="outline" onClick={() => handleAction(actions.remove)} disabled={isAnimating || isValueInvalid}><Trash2/>Remove</Button>}
+              {actions.search && <Button type="button" variant="outline" onClick={() => handleAction(actions.search)} disabled={isAnimating || isValueInvalid}><Search/>Search</Button>}
+              {actions.extractMin && <Button type="button" onClick={handleExtractMin} disabled={isAnimating}><ArrowDownToDot/>Extract Min</Button>}
+              {clearTree && <Button type="button" variant="destructive" onClick={clearTree} disabled={isAnimating}><CircleSlash/>Clear</Button>}
+              {addRandomNodes && <Button type="button" variant="secondary" onClick={handleAddRandom} disabled={isAnimating}><Shuffle/>Add Random</Button>}
+            </div>
+            
+            <div className="hidden lg:flex items-center space-x-2 pt-2">
+              <Checkbox id="auto-animate" checked={isAutoPlaying} onCheckedChange={(checked) => setIsAutoPlaying(!!checked)} />
+              <Label htmlFor="auto-animate">Auto-Animate on Start</Label>
             </div>
           </form>
         </Form>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {clearTree && <Button type="button" variant="destructive" onClick={clearTree} disabled={isAnimating}>Clear</Button>}
-          {addRandomNodes && <Button type="button" variant="secondary" onClick={handleAddRandom} disabled={isAnimating}>Add Random</Button>}
-        </div>
-
-        <div className="flex items-center space-x-2 pt-2">
-          <Checkbox id="auto-animate" checked={isAutoPlaying} onCheckedChange={(checked) => setIsAutoPlaying(!!checked)} />
-          <Label htmlFor="auto-animate">Auto-Animate on Start</Label>
-        </div>
-
+        
         {totalSteps > 0 && (
-          <>
+          <div className="hidden lg:block">
             <Separator />
-            <div className="space-y-4">
+            <div className="space-y-4 pt-4">
               <Label>Animation Progress ({currentStep} / {totalSteps})</Label>
               <Slider
                 value={[currentStep]}
@@ -180,7 +216,7 @@ export function Controls({
                   </Button>
               </div>
             </div>
-            <Separator />
+            <Separator className="my-4"/>
             <div className="space-y-4">
               <Label>Animation Speed</Label>
               <Slider
@@ -191,7 +227,7 @@ export function Controls({
                 step={1}
               />
             </div>
-            <Separator />
+            <Separator className="my-4"/>
             <div className="space-y-2">
               <Label>Debug: Current Action</Label>
               <pre className="text-xs p-2 bg-muted rounded-md overflow-x-auto">
@@ -203,7 +239,7 @@ export function Controls({
                 </code>
               </pre>
             </div>
-          </>
+          </div>
         )}
       </CardContent>
     </Card>
